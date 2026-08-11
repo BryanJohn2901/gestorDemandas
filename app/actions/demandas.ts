@@ -56,7 +56,11 @@ export async function updateDemanda(
   id: string,
   input: DemandaFormValues
 ): Promise<ActionResult> {
-  const profile = await requireProfile();
+  // Edição completa (título, prioridade, prazo, responsável...) é só do admin.
+  // Colaborador atualiza status pela updateDemandaStatus abaixo — a UI já
+  // esconde esse formulário pra ele, mas a Server Action também precisa
+  // recusar, já que uma UI escondida não é controle de acesso de verdade.
+  await requireAdmin();
 
   const parsed = demandaFormSchema.safeParse(input);
   if (!parsed.success) {
@@ -64,18 +68,6 @@ export async function updateDemanda(
   }
 
   const supabase = await createClient();
-
-  if (profile.role !== "admin") {
-    const { data: existing } = await supabase
-      .from("demandas")
-      .select("responsavel_id")
-      .eq("id", id)
-      .single();
-
-    if (!existing || existing.responsavel_id !== profile.id) {
-      return { success: false, error: "Você só pode editar suas próprias demandas." };
-    }
-  }
 
   const { titulo, descricao, responsavel_id, status, prioridade, prazo, cliente_projeto } =
     parsed.data;

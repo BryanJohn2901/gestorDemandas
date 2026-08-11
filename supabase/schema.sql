@@ -176,6 +176,36 @@ create policy "demandas_update"
   using (public.is_admin() or responsavel_id = auth.uid())
   with check (public.is_admin() or responsavel_id = auth.uid());
 
+-- RLS acima só decide QUAIS LINHAS um colaborador pode tocar — não QUAIS
+-- COLUNAS. Este trigger fecha essa lacuna: colaborador só pode alterar o
+-- status da própria demanda, mesmo chamando a API do Supabase diretamente.
+create function public.enforce_demanda_update_scope()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    if new.titulo is distinct from old.titulo
+      or new.descricao is distinct from old.descricao
+      or new.responsavel_id is distinct from old.responsavel_id
+      or new.prioridade is distinct from old.prioridade
+      or new.prazo is distinct from old.prazo
+      or new.cliente_projeto is distinct from old.cliente_projeto
+      or new.criado_por is distinct from old.criado_por
+    then
+      raise exception 'Apenas administradores podem editar esses campos. Colaboradores só podem atualizar o status.';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger enforce_demanda_update_scope
+  before update on public.demandas
+  for each row execute function public.enforce_demanda_update_scope();
+
 -- Apenas admin remove demandas.
 create policy "demandas_delete_admin"
   on public.demandas for delete

@@ -19,7 +19,7 @@ export function MobileNav({ role }: { role: UserRole }) {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 md:hidden">
+        <Button variant="ghost" size="icon-sm" className="md:hidden">
           <Menu className="h-5 w-5" />
           <span className="sr-only">Abrir menu</span>
         </Button>

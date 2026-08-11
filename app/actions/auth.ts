@@ -3,10 +3,20 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
+// Só permite redirecionar para um caminho relativo dentro do próprio app.
+// Sem isso, um link como /login?redirect=https://evil.com levaria o usuário
+// pra fora do site logo após o login (open redirect / phishing).
+function safeRedirect(path: string): string {
+  if (path.startsWith("/") && !path.startsWith("//") && !path.startsWith("/\\")) {
+    return path;
+  }
+  return "/dashboard";
+}
+
 export async function signIn(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  const redirectTo = String(formData.get("redirectTo") || "/dashboard");
+  const redirectTo = safeRedirect(String(formData.get("redirectTo") || "/dashboard"));
 
   if (!email || !password) {
     redirect(

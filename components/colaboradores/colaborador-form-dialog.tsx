@@ -141,7 +141,7 @@ export function ColaboradorFormDialog({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+              className="h-8 w-8"
               onClick={copyPassword}
             >
               {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -170,7 +170,7 @@ export function ColaboradorFormDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
             <FormField
               control={form.control}
               name="nome"
