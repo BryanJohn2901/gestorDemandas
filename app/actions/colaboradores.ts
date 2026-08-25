@@ -58,11 +58,14 @@ export async function createColaborador(
     return { success: false, error: error?.message ?? "Não foi possível criar o colaborador." };
   }
 
-  if (avatar_url) {
-    await admin
-      .from("profiles")
-      .update({ avatar_url })
-      .eq("id", data.user.id);
+  const { error: linkError } = await admin
+    .from("profiles")
+    .update({ empresa_id: currentAdmin.empresa_id, avatar_url: avatar_url || null })
+    .eq("id", data.user.id);
+
+  if (linkError) {
+    console.error("[createColaborador] link", linkError);
+    return { success: false, error: "Colaborador criado, mas houve um erro ao vinculá-lo à empresa. Contate o suporte." };
   }
 
   revalidatePath("/colaboradores");
@@ -73,7 +76,7 @@ export async function updateColaborador(
   id: string,
   input: ColaboradorFormValues
 ): Promise<ActionResult> {
-  await requireAdmin();
+  const currentAdmin = await requireAdmin();
 
   const parsed = colaboradorFormSchema.safeParse(input);
   if (!parsed.success) {
@@ -85,11 +88,17 @@ export async function updateColaborador(
 
   const { data: currentProfile } = await admin
     .from("profiles")
-    .select("email")
+    .select("email, empresa_id")
     .eq("id", id)
     .single();
 
-  if (currentProfile && currentProfile.email !== email) {
+  // admin.from() usa a service-role key, que ignora RLS — sem essa checagem
+  // explícita, um admin conseguiria editar colaborador de outra empresa.
+  if (!currentProfile || currentProfile.empresa_id !== currentAdmin.empresa_id) {
+    return { success: false, error: "Colaborador não encontrado." };
+  }
+
+  if (currentProfile.email !== email) {
     const { error: authError } = await admin.auth.admin.updateUserById(id, {
       email,
     });
@@ -128,6 +137,20 @@ export async function deleteColaborador(id: string): Promise<ActionResult> {
   }
 
   const admin = createAdminClient();
+
+  const { data: target } = await admin
+    .from("profiles")
+    .select("empresa_id")
+    .eq("id", id)
+    .single();
+
+  // admin.auth.admin.deleteUser() usa a service-role key, que ignora RLS —
+  // sem essa checagem explícita, um admin conseguiria excluir colaborador
+  // de outra empresa.
+  if (!target || target.empresa_id !== currentAdmin.empresa_id) {
+    return { success: false, error: "Colaborador não encontrado." };
+  }
+
   const { error } = await admin.auth.admin.deleteUser(id);
 
   if (error) {

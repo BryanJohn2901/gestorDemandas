@@ -21,14 +21,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ColaboradorFormDialog } from "@/components/colaboradores/colaborador-form-dialog";
+import {
+  ColaboradorFormDialog,
+  type ColaboradorProfile,
+} from "@/components/colaboradores/colaborador-form-dialog";
 import {
   deleteColaborador,
   toggleColaboradorStatus,
 } from "@/app/actions/colaboradores";
-import type { Profile } from "@/types/database";
 
-export function ColaboradorRowActions({ colaborador }: { colaborador: Profile }) {
+export function ColaboradorRowActions({ colaborador }: { colaborador: ColaboradorProfile }) {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [isPending, startTransition] = useTransition();

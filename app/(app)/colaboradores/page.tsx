@@ -17,6 +17,7 @@ import {
 import { NovoColaboradorButton } from "@/components/colaboradores/novo-colaborador-button";
 import { ColaboradorRowActions } from "@/components/colaboradores/colaborador-row-actions";
 import { ColaboradoresFilters } from "@/components/colaboradores/colaboradores-filters";
+import type { ColaboradorProfile } from "@/components/colaboradores/colaborador-form-dialog";
 import type { Profile } from "@/types/database";
 
 
@@ -131,7 +132,9 @@ export default async function ColaboradoresPage({
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <ColaboradorRowActions colaborador={colaborador} />
+                  <ColaboradorRowActions
+                    colaborador={colaborador as ColaboradorProfile}
+                  />
                 </TableCell>
               </TableRow>
             ))}

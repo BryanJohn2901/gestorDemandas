@@ -1,5 +1,6 @@
-export type UserRole = "admin" | "colaborador"
+export type UserRole = "master" | "admin" | "colaborador"
 export type UserStatus = "ativo" | "inativo"
+export type EmpresaStatus = "ativo" | "inativo"
 
 export type DemandaStatus =
   | "a_fazer"
@@ -9,8 +10,16 @@ export type DemandaStatus =
 
 export type DemandaPrioridade = "baixa" | "media" | "alta" | "urgente"
 
+export type Empresa = {
+  id: string
+  nome: string
+  status: EmpresaStatus
+  created_at: string
+}
+
 export type Profile = {
   id: string
+  empresa_id: string | null
   nome: string
   email: string
   cargo: string
@@ -22,6 +31,7 @@ export type Profile = {
 
 export type Demanda = {
   id: string
+  empresa_id: string
   titulo: string
   descricao: string | null
   responsavel_id: string | null
@@ -49,6 +59,12 @@ export type Comentario = {
 export type Database = {
   public: {
     Tables: {
+      empresas: {
+        Row: Empresa
+        Insert: Partial<Empresa> & Pick<Empresa, "nome">
+        Update: Partial<Empresa>
+        Relationships: []
+      }
       profiles: {
         Row: Profile
         Insert: Partial<Profile> & Pick<Profile, "id" | "nome" | "email">
@@ -57,7 +73,7 @@ export type Database = {
       }
       demandas: {
         Row: Demanda
-        Insert: Partial<Demanda> & Pick<Demanda, "titulo">
+        Insert: Partial<Demanda> & Pick<Demanda, "titulo" | "empresa_id">
         Update: Partial<Demanda>
         Relationships: []
       }

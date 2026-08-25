@@ -29,6 +29,7 @@ export async function createDemanda(
   const { data, error } = await supabase
     .from("demandas")
     .insert({
+      empresa_id: admin.empresa_id!,
       titulo,
       descricao: descricao || null,
       responsavel_id,

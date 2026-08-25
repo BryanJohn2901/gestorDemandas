@@ -14,6 +14,7 @@ export const RECOVERY_COOKIE = "pwd_recovery";
 // dependem de RLS (auth.uid()) ainda podem voltar vazias/erro.
 const DEV_PROFILE: Profile = {
   id: "00000000-0000-0000-0000-000000000000",
+  empresa_id: null,
   nome: "Dev",
   email: "dev@local",
   cargo: "Desenvolvimento",
@@ -63,6 +64,16 @@ export async function requireAdmin(): Promise<Profile> {
   const profile = await requireProfile();
 
   if (profile.role !== "admin") {
+    redirect("/dashboard");
+  }
+
+  return profile;
+}
+
+export async function requireMaster(): Promise<Profile> {
+  const profile = await requireProfile();
+
+  if (profile.role !== "master") {
     redirect("/dashboard");
   }
 

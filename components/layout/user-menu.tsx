@@ -37,7 +37,11 @@ export function UserMenu({ profile }: { profile: Profile }) {
             {profile.email}
           </span>
           <Badge variant="secondary" className="w-fit">
-            {profile.role === "admin" ? "Admin" : profile.cargo || "Colaborador"}
+            {profile.role === "master"
+              ? "Master"
+              : profile.role === "admin"
+                ? "Admin"
+                : profile.cargo || "Colaborador"}
           </Badge>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

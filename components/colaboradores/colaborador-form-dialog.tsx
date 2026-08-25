@@ -38,11 +38,15 @@ import {
 import { createColaborador, updateColaborador } from "@/app/actions/colaboradores";
 import type { Profile } from "@/types/database";
 
+// Este diálogo só é usado dentro da tela de colaboradores de uma empresa —
+// nunca recebe um perfil master (master não pertence a empresa nenhuma).
+export type ColaboradorProfile = Omit<Profile, "role"> & { role: "admin" | "colaborador" };
+
 type ColaboradorFormDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mode: "create" | "edit";
-  colaborador?: Profile;
+  colaborador?: ColaboradorProfile;
 };
 
 const emptyValues: ColaboradorFormValues = {
