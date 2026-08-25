@@ -33,18 +33,6 @@ alter table public.profiles drop constraint profiles_role_check;
 alter table public.profiles add constraint profiles_role_check
   check (role in ('master', 'admin', 'colaborador'));
 
--- Amarra a regra ao role em vez de um NOT NULL na coluna: o trigger
--- handle_new_user() insere a linha de profiles sem saber o empresa_id (só
--- lê nome/cargo/role do metadata) — tanto criar colaborador quanto criar
--- empresa+admin completam o empresa_id num update logo depois do insert,
--- mesmo padrão que já existe hoje pra avatar_url. Um NOT NULL na coluna
--- quebraria esse insert antes do update rodar.
-alter table public.profiles add constraint profiles_empresa_id_by_role
-  check (
-    (role = 'master' and empresa_id is null)
-    or (role <> 'master' and empresa_id is not null)
-  );
-
 -- ----------------------------------------------------------------------------
 -- 3. Coluna empresa_id em demandas (vai virar NOT NULL depois do backfill)
 -- ----------------------------------------------------------------------------
@@ -69,6 +57,20 @@ alter table public.demandas alter column empresa_id set not null;
 
 create index demandas_empresa_id_idx on public.demandas (empresa_id);
 create index profiles_empresa_id_idx on public.profiles (empresa_id);
+
+-- Amarra a regra role<->empresa_id em vez de um NOT NULL na coluna: o
+-- trigger handle_new_user() insere a linha de profiles sem saber o
+-- empresa_id (só lê nome/cargo/role do metadata) — tanto criar colaborador
+-- quanto criar empresa+admin completam o empresa_id num update logo depois
+-- do insert, mesmo padrão que já existe hoje pra avatar_url. Um NOT NULL na
+-- coluna quebraria esse insert antes do update rodar.
+-- Só pode ser criada AQUI, depois do backfill acima — antes disso todo
+-- profile existente tinha empresa_id nulo e violaria a constraint na hora.
+alter table public.profiles add constraint profiles_empresa_id_by_role
+  check (
+    (role = 'master' and empresa_id is null)
+    or (role <> 'master' and empresa_id is not null)
+  );
 
 -- ----------------------------------------------------------------------------
 -- 5. Helpers de RLS
