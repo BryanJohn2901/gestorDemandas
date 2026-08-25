@@ -16,6 +16,7 @@ import { DemandaStatusSelect } from "@/components/demandas/demanda-status-select
 import { isAtrasada } from "@/lib/demandas";
 import { cn } from "@/lib/utils";
 
+
 function initials(nome: string) {
   return nome
     .trim()

@@ -1,9 +1,14 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
+import { LOGIN_DISABLED } from "@/lib/dev-flags"
 
-const PUBLIC_PATHS = ["/login"]
+const PUBLIC_PATHS = ["/login", "/forgot-password", "/auth/confirm"]
 
 export async function updateSession(request: NextRequest) {
+  if (LOGIN_DISABLED) {
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -24,12 +29,26 @@ export async function updateSession(request: NextRequest) {
           )
         },
       },
+      global: {
+        // Sem isso, uma falha de rede até o Supabase deixa o middleware
+        // pendurado indefinidamente (nenhuma resposta é enviada e a navegação
+        // fica girando pra sempre) — todo request passa por getUser() aqui.
+        fetch: (input, init) =>
+          fetch(input, { ...init, signal: AbortSignal.timeout(8000) }),
+      },
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null
+  try {
+    const {
+      data: { user: fetchedUser },
+    } = await supabase.auth.getUser()
+    user = fetchedUser
+  } catch {
+    // Timeout ou falha de rede: segue como não-autenticado em vez de travar
+    // a navegação. Páginas protegidas caem no redirect pro /login abaixo.
+  }
 
   const { pathname } = request.nextUrl
   const isPublicPath = PUBLIC_PATHS.some((path) => pathname.startsWith(path))

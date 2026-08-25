@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { generateTempPassword } from "@/lib/password";
+import { checkRateLimit } from "@/lib/rate-limit";
 import {
   colaboradorFormSchema,
   type ColaboradorFormValues,
@@ -17,7 +18,21 @@ type ActionResult =
 export async function createColaborador(
   input: ColaboradorFormValues
 ): Promise<ActionResult> {
-  await requireAdmin();
+  const currentAdmin = await requireAdmin();
+
+  // Guarda contra script/sessão comprometida criando usuários em massa —
+  // uso normal (admin cadastrando o time) fica bem abaixo disso.
+  const { allowed } = checkRateLimit(
+    `create-colaborador:${currentAdmin.id}`,
+    20,
+    60 * 60_000
+  );
+  if (!allowed) {
+    return {
+      success: false,
+      error: "Muitos colaboradores criados em pouco tempo. Aguarde um pouco.",
+    };
+  }
 
   const parsed = colaboradorFormSchema.safeParse(input);
   if (!parsed.success) {
@@ -39,6 +54,7 @@ export async function createColaborador(
     if (error?.code === "email_exists") {
       return { success: false, error: "Já existe um usuário com esse e-mail." };
     }
+    console.error("[createColaborador]", error);
     return { success: false, error: error?.message ?? "Não foi possível criar o colaborador." };
   }
 
@@ -78,6 +94,7 @@ export async function updateColaborador(
       email,
     });
     if (authError) {
+      console.error("[updateColaborador] auth", id, authError);
       return { success: false, error: authError.message };
     }
   }
@@ -95,6 +112,7 @@ export async function updateColaborador(
     .eq("id", id);
 
   if (error) {
+    console.error("[updateColaborador]", id, error);
     return { success: false, error: error.message };
   }
 
@@ -113,6 +131,7 @@ export async function deleteColaborador(id: string): Promise<ActionResult> {
   const { error } = await admin.auth.admin.deleteUser(id);
 
   if (error) {
+    console.error("[deleteColaborador]", id, error);
     return { success: false, error: error.message };
   }
 
@@ -137,6 +156,7 @@ export async function toggleColaboradorStatus(
     .eq("id", id);
 
   if (error) {
+    console.error("[toggleColaboradorStatus]", id, error);
     return { success: false, error: error.message };
   }
 

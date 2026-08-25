@@ -12,6 +12,7 @@ import {
 import { STATUS_ORDER, isAtrasada } from "@/lib/demandas";
 import type { Demanda, DemandaStatus, Profile } from "@/types/database";
 
+
 export default async function DashboardPage() {
   const profile = await requireProfile();
   const supabase = await createClient();

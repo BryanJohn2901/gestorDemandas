@@ -42,6 +42,7 @@ export async function createDemanda(
     .single();
 
   if (error) {
+    console.error("[createDemanda]", error);
     return { success: false, error: error.message };
   }
 
@@ -86,6 +87,7 @@ export async function updateDemanda(
     .eq("id", id);
 
   if (error) {
+    console.error("[updateDemanda]", id, error);
     return { success: false, error: error.message };
   }
 
@@ -122,6 +124,7 @@ export async function updateDemandaStatus(
     .eq("id", id);
 
   if (error) {
+    console.error("[updateDemandaStatus]", id, error);
     return { success: false, error: error.message };
   }
 
@@ -140,6 +143,7 @@ export async function deleteDemanda(id: string): Promise<ActionResult> {
   const { error } = await supabase.from("demandas").delete().eq("id", id);
 
   if (error) {
+    console.error("[deleteDemanda]", id, error);
     return { success: false, error: error.message };
   }
 

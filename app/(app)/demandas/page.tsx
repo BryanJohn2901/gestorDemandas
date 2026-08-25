@@ -4,6 +4,7 @@ import { NovaDemandaButton } from "@/components/demandas/nova-demanda-button";
 import { DemandasTable } from "@/components/demandas/demandas-table";
 import { withResponsavel } from "@/lib/demandas";
 
+
 export default async function DemandasPage() {
   const profile = await requireProfile();
   const supabase = await createClient();

@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { signIn } from "@/app/actions/auth";
+import { updatePassword } from "@/app/actions/auth";
 import { SubmitButton } from "@/components/ui/submit-button";
 import {
   Card,
@@ -12,13 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 
-type LoginPageProps = {
-  searchParams: Promise<{ error?: string; redirect?: string }>;
+type UpdatePasswordPageProps = {
+  searchParams: Promise<{ error?: string }>;
 };
 
-export default async function LoginPage({ searchParams }: LoginPageProps) {
+export default async function UpdatePasswordPage({
+  searchParams,
+}: UpdatePasswordPageProps) {
   const params = await searchParams;
-  const redirectTo = params.redirect || "/dashboard";
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-8 bg-background p-4">
@@ -33,33 +33,31 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-xl">Gestor de Demandas</CardTitle>
-          <CardDescription>
-            Acesse com as credenciais fornecidas pelo administrador.
-          </CardDescription>
+          <CardTitle className="text-xl">Definir nova senha</CardTitle>
+          <CardDescription>Escolha uma nova senha de acesso.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={signIn} className="space-y-4">
-            <input type="hidden" name="redirectTo" value={redirectTo} />
-
+          <form action={updatePassword} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">E-mail</Label>
+              <Label htmlFor="password">Nova senha</Label>
               <Input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                minLength={8}
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
+              <Label htmlFor="confirmPassword">Confirmar nova senha</Label>
               <Input
-                id="password"
-                name="password"
+                id="confirmPassword"
+                name="confirmPassword"
                 type="password"
-                autoComplete="current-password"
+                autoComplete="new-password"
+                minLength={8}
                 required
               />
             </div>
@@ -68,17 +66,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               <p className="text-sm text-destructive">{params.error}</p>
             )}
 
-            <SubmitButton pendingText="Entrando..." className="w-full">
-              Entrar
+            <SubmitButton pendingText="Salvando..." className="w-full">
+              Salvar nova senha
             </SubmitButton>
           </form>
-
-          <Link
-            href="/forgot-password"
-            className="mt-4 block text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
-          >
-            Esqueci minha senha
-          </Link>
         </CardContent>
       </Card>
     </main>

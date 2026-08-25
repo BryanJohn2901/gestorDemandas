@@ -1,7 +1,23 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { LOGIN_DISABLED } from "@/lib/dev-flags";
 import type { Profile } from "@/types/database";
+
+// Perfil usado enquanto o login tá desativado (LOGIN_DISABLED em
+// lib/dev-flags.ts) — só pra telas renderizarem sem exigir sessão real.
+// Não corresponde a um usuário de verdade no Supabase: consultas que
+// dependem de RLS (auth.uid()) ainda podem voltar vazias/erro.
+const DEV_PROFILE: Profile = {
+  id: "00000000-0000-0000-0000-000000000000",
+  nome: "Dev",
+  email: "dev@local",
+  cargo: "Desenvolvimento",
+  role: "admin",
+  status: "ativo",
+  avatar_url: null,
+  created_at: new Date().toISOString(),
+};
 
 export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
   const supabase = await createClient();
@@ -24,6 +40,9 @@ export async function requireProfile(): Promise<Profile> {
   const profile = await getCurrentProfile();
 
   if (!profile) {
+    if (LOGIN_DISABLED) {
+      return DEV_PROFILE;
+    }
     redirect("/login");
   }
 

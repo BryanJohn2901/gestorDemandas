@@ -10,6 +10,7 @@ import { STATUS_CONFIG, STATUS_ORDER, isAtrasada } from "@/lib/demandas";
 import { cn } from "@/lib/utils";
 import type { Demanda } from "@/types/database";
 
+
 export default async function MinhasTarefasPage() {
   const profile = await requireProfile();
   const supabase = await createClient();

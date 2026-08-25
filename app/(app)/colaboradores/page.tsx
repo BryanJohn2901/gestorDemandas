@@ -19,6 +19,7 @@ import { ColaboradorRowActions } from "@/components/colaboradores/colaborador-ro
 import { ColaboradoresFilters } from "@/components/colaboradores/colaboradores-filters";
 import type { Profile } from "@/types/database";
 
+
 type ColaboradoresPageProps = {
   searchParams: Promise<{ q?: string; cargo?: string; status?: string }>;
 };

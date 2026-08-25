@@ -16,6 +16,9 @@ export function ThemeToggle() {
   const { setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
+  // Guarda de hidratação: o tema real só existe no cliente (next-themes lê
+  // localStorage), então o primeiro render do servidor precisa ficar neutro.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
 
   return (

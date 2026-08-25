@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   DndContext,
   DragOverlay,
+  KeyboardSensor,
   PointerSensor,
   closestCenter,
   useSensor,
@@ -28,7 +29,11 @@ export function KanbanBoard({
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    // Sem sortable list (colunas são drop zones separadas, não uma lista
+    // única), então o card se move em passos fixos até a coluna mais
+    // próxima — não é elegante, mas dá um jeito de mover por teclado.
+    useSensor(KeyboardSensor)
   );
 
   const activeDemanda = items.find((d) => d.id === activeId);

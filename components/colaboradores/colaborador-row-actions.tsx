@@ -65,6 +65,7 @@ export function ColaboradorRowActions({ colaborador }: { colaborador: Profile })
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon-sm">
             <MoreHorizontal className="h-4 w-4" />
+            <span className="sr-only">Mais ações</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">

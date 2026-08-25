@@ -79,6 +79,11 @@ export function ColaboradorFormDialog({
 
   useEffect(() => {
     if (open) {
+      // Reset intencional ao reabrir: o diálogo fica montado o tempo todo
+      // (só o Radix Dialog interno esconde/mostra), então sem isso o estado
+      // da abertura anterior (senha temporária, form) vazaria pra próxima.
+      // Remontar via `key` evitaria isso, mas cortaria a animação de saída.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTempPassword(null);
       setCopied(false);
       form.reset(

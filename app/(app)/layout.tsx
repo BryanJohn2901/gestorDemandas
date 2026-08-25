@@ -3,6 +3,7 @@ import { requireProfile } from "@/lib/auth";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 
+
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const profile = await requireProfile();
 

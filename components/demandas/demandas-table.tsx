@@ -43,6 +43,23 @@ function initials(nome: string) {
     .join("");
 }
 
+function SortIcon({
+  column,
+  sortColumn,
+  sortDirection,
+}: {
+  column: SortColumn;
+  sortColumn: SortColumn;
+  sortDirection: SortDirection;
+}) {
+  if (sortColumn !== column) return <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />;
+  return sortDirection === "asc" ? (
+    <ArrowUp className="h-3.5 w-3.5" />
+  ) : (
+    <ArrowDown className="h-3.5 w-3.5" />
+  );
+}
+
 export function DemandasTable({
   demandas,
   colaboradores,
@@ -79,15 +96,6 @@ export function DemandasTable({
       setSortColumn(column);
       setSortDirection("asc");
     }
-  }
-
-  function SortIcon({ column }: { column: SortColumn }) {
-    if (sortColumn !== column) return <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />;
-    return sortDirection === "asc" ? (
-      <ArrowUp className="h-3.5 w-3.5" />
-    ) : (
-      <ArrowDown className="h-3.5 w-3.5" />
-    );
   }
 
   const rows = useMemo(() => {
@@ -227,7 +235,7 @@ export function DemandasTable({
                   className="flex items-center gap-1 hover:text-foreground"
                   onClick={() => toggleSort("titulo")}
                 >
-                  Título <SortIcon column="titulo" />
+                  Título <SortIcon column="titulo" sortColumn={sortColumn} sortDirection={sortDirection} />
                 </button>
               </TableHead>
               <TableHead>
@@ -235,7 +243,7 @@ export function DemandasTable({
                   className="flex items-center gap-1 hover:text-foreground"
                   onClick={() => toggleSort("responsavel")}
                 >
-                  Responsável <SortIcon column="responsavel" />
+                  Responsável <SortIcon column="responsavel" sortColumn={sortColumn} sortDirection={sortDirection} />
                 </button>
               </TableHead>
               <TableHead>
@@ -243,7 +251,7 @@ export function DemandasTable({
                   className="flex items-center gap-1 hover:text-foreground"
                   onClick={() => toggleSort("cliente_projeto")}
                 >
-                  Cliente/Projeto <SortIcon column="cliente_projeto" />
+                  Cliente/Projeto <SortIcon column="cliente_projeto" sortColumn={sortColumn} sortDirection={sortDirection} />
                 </button>
               </TableHead>
               <TableHead>
@@ -251,7 +259,7 @@ export function DemandasTable({
                   className="flex items-center gap-1 hover:text-foreground"
                   onClick={() => toggleSort("status")}
                 >
-                  Status <SortIcon column="status" />
+                  Status <SortIcon column="status" sortColumn={sortColumn} sortDirection={sortDirection} />
                 </button>
               </TableHead>
               <TableHead>
@@ -259,7 +267,7 @@ export function DemandasTable({
                   className="flex items-center gap-1 hover:text-foreground"
                   onClick={() => toggleSort("prioridade")}
                 >
-                  Prioridade <SortIcon column="prioridade" />
+                  Prioridade <SortIcon column="prioridade" sortColumn={sortColumn} sortDirection={sortDirection} />
                 </button>
               </TableHead>
               <TableHead>
@@ -267,7 +275,7 @@ export function DemandasTable({
                   className="flex items-center gap-1 hover:text-foreground"
                   onClick={() => toggleSort("prazo")}
                 >
-                  Prazo <SortIcon column="prazo" />
+                  Prazo <SortIcon column="prazo" sortColumn={sortColumn} sortDirection={sortDirection} />
                 </button>
               </TableHead>
             </TableRow>

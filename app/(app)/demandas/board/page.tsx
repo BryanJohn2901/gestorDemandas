@@ -4,6 +4,7 @@ import { NovaDemandaButton } from "@/components/demandas/nova-demanda-button";
 import { KanbanBoard } from "@/components/demandas/kanban-board";
 import { withResponsavel } from "@/lib/demandas";
 
+
 export default async function BoardPage() {
   const profile = await requireProfile();
   const supabase = await createClient();
