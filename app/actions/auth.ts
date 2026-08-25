@@ -1,9 +1,10 @@
 "use server";
 
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { RECOVERY_COOKIE } from "@/lib/auth";
 
 // Só permite redirecionar para um caminho relativo dentro do próprio app.
 // Sem isso, um link como /login?redirect=https://evil.com levaria o usuário
@@ -117,5 +118,6 @@ export async function updatePassword(formData: FormData) {
     );
   }
 
+  (await cookies()).delete(RECOVERY_COOKIE);
   redirect("/login?error=Senha atualizada. Faça login com a nova senha.");
 }

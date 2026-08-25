@@ -4,6 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { LOGIN_DISABLED } from "@/lib/dev-flags";
 import type { Profile } from "@/types/database";
 
+// Nome do cookie que marca "essa sessão veio do link de recuperação de
+// senha" — ver app/auth/confirm/route.ts e app/update-password/page.tsx.
+export const RECOVERY_COOKIE = "pwd_recovery";
+
 // Perfil usado enquanto o login tá desativado (LOGIN_DISABLED em
 // lib/dev-flags.ts) — só pra telas renderizarem sem exigir sessão real.
 // Não corresponde a um usuário de verdade no Supabase: consultas que

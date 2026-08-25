@@ -1,4 +1,7 @@
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { updatePassword } from "@/app/actions/auth";
+import { RECOVERY_COOKIE } from "@/lib/auth";
 import { SubmitButton } from "@/components/ui/submit-button";
 import {
   Card,
@@ -19,6 +22,16 @@ export default async function UpdatePasswordPage({
   searchParams,
 }: UpdatePasswordPageProps) {
   const params = await searchParams;
+
+  // Só acessível vindo do link de e-mail (app/auth/confirm/route.ts seta
+  // esse cookie). Impede que alguém já logado no app chegue aqui direto e
+  // troque a senha de outra pessoa sem nunca ter clicado no link.
+  const cookieStore = await cookies();
+  if (!cookieStore.get(RECOVERY_COOKIE)) {
+    redirect(
+      `/forgot-password?error=${encodeURIComponent("Acesse pelo link enviado no seu e-mail.")}`
+    );
+  }
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-8 bg-background p-4">
