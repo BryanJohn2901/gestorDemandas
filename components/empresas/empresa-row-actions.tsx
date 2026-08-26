@@ -11,13 +11,39 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { EmpresaRenameDialog } from "@/components/empresas/empresa-rename-dialog";
-import { toggleEmpresaStatus } from "@/app/actions/empresas";
+import { deleteEmpresa, toggleEmpresaStatus } from "@/app/actions/empresas";
 import type { Empresa } from "@/types/database";
 
 export function EmpresaRowActions({ empresa }: { empresa: Empresa }) {
   const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  function handleDelete() {
+    startTransition(async () => {
+      const result = await deleteEmpresa(empresa.id);
+      if (!result.success) {
+        toast.error(result.error);
+      } else {
+        toast.success("Empresa excluída.");
+        setDeleteOpen(false);
+      }
+    });
+  }
 
   function handleToggleStatus() {
     const nextStatus = empresa.status === "ativo" ? "inativo" : "ativo";
@@ -52,10 +78,57 @@ export function EmpresaRowActions({ empresa }: { empresa: Empresa }) {
           <DropdownMenuItem disabled={isPending} onSelect={handleToggleStatus}>
             {empresa.status === "ativo" ? "Inativar" : "Ativar"}
           </DropdownMenuItem>
+          <DropdownMenuItem
+            variant="destructive"
+            onSelect={(e) => {
+              e.preventDefault();
+              setConfirmText("");
+              setDeleteOpen(true);
+            }}
+          >
+            Excluir
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
       <EmpresaRenameDialog empresa={empresa} open={editOpen} onOpenChange={setEditOpen} />
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir {empresa.nome}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso apaga <strong>permanentemente</strong> todos os colaboradores,
+              demandas e acessos dessa empresa. Não pode ser desfeito.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="confirm-nome">
+              Digite <strong>{empresa.nome}</strong> pra confirmar
+            </Label>
+            <Input
+              id="confirm-nome"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isPending || confirmText !== empresa.nome}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
+            >
+              Excluir permanentemente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

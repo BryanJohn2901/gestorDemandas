@@ -110,6 +110,48 @@ export async function updateEmpresa(
   return { success: true };
 }
 
+export async function deleteEmpresa(id: string): Promise<ActionResult> {
+  await requireMaster();
+
+  const admin = createAdminClient();
+
+  // Apaga primeiro os usuários no Auth (cada admin/colaborador da empresa)
+  // — se apagássemos só a linha de `empresas`, o cascade no banco remove os
+  // profiles, mas o login em auth.users ficaria órfão pra sempre (sem
+  // profile, mas existindo e ocupando conta). demandas/comentarios são
+  // removidos pelo cascade de empresa_id ao final.
+  const { data: membros, error: membrosError } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("empresa_id", id);
+
+  if (membrosError) {
+    console.error("[deleteEmpresa] listar membros", id, membrosError);
+    return { success: false, error: membrosError.message };
+  }
+
+  for (const membro of membros ?? []) {
+    const { error: deleteUserError } = await admin.auth.admin.deleteUser(membro.id);
+    if (deleteUserError) {
+      console.error("[deleteEmpresa] excluir usuário", membro.id, deleteUserError);
+      return {
+        success: false,
+        error: `Falha ao excluir um usuário da empresa (${deleteUserError.message}). Nada foi apagado ainda — tente de novo.`,
+      };
+    }
+  }
+
+  const { error } = await admin.from("empresas").delete().eq("id", id);
+
+  if (error) {
+    console.error("[deleteEmpresa]", id, error);
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath("/master");
+  return { success: true };
+}
+
 export async function toggleEmpresaStatus(
   id: string,
   status: "ativo" | "inativo"

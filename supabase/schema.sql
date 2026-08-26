@@ -183,8 +183,9 @@ $$;
 
 -- --- empresas -----------------------------------------------------------
 --
--- Só master gerencia. Sem policy de delete por enquanto — desativar via
--- status, não apagar (evita cascade de todos os dados de uma empresa).
+-- Só master gerencia. Excluir empresa é destrutivo (cascade de todos os
+-- colaboradores e demandas dela) — a Server Action (app/actions/empresas.ts)
+-- exige confirmação explícita na UI antes de chamar isso.
 
 create policy "empresas_select_master"
   on public.empresas for select
@@ -198,6 +199,11 @@ create policy "empresas_insert_master"
 
 create policy "empresas_update_master"
   on public.empresas for update
+  to authenticated
+  using (public.is_master());
+
+create policy "empresas_delete_master"
+  on public.empresas for delete
   to authenticated
   using (public.is_master());
 
