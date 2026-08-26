@@ -28,15 +28,9 @@ export function MasterMobileNav() {
         className="w-64 gap-0 bg-sidebar p-0 text-sidebar-foreground"
       >
         <SheetHeader className="flex-row items-center gap-2 space-y-0 border-b px-4 py-3">
-          {/* eslint-disable-next-line @next/next/no-img-element -- SVG local, next/image bloqueia otimização de SVG */}
-          <img
-            src="/logo-nexo.svg"
-            alt="Nexo"
-            width={140}
-            height={54}
-            className="h-6 w-auto"
-          />
-          <SheetTitle className="sr-only">Master</SheetTitle>
+          <SheetTitle className="text-sm font-semibold tracking-tight">
+            Painel Master
+          </SheetTitle>
         </SheetHeader>
         <MasterNavLinks onNavigate={() => setOpen(false)} />
       </SheetContent>
