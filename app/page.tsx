@@ -18,6 +18,13 @@ export default async function Home() {
     redirect(profile.role === "master" ? "/master" : "/dashboard");
   }
 
+  // Local (npm run dev): pula a tela de "assine agora" e vai direto pro
+  // login — essa página institucional só faz sentido em produção, pra
+  // visitante de verdade. Em build de produção (Vercel) isso nunca entra.
+  if (process.env.NODE_ENV !== "production") {
+    redirect("/login");
+  }
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-8 bg-background p-4">
       <div className="max-w-md space-y-2 text-center">
