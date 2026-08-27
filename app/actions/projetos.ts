@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdminOrGestor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { logEvento } from "@/lib/eventos";
 import {
@@ -16,7 +16,7 @@ type ActionResult =
 export async function createProjeto(
   input: ProjetoFormValues
 ): Promise<ActionResult> {
-  const admin = await requireAdmin();
+  const admin = await requireAdminOrGestor();
 
   const parsed = projetoFormSchema.safeParse(input);
   if (!parsed.success) {
@@ -48,7 +48,7 @@ export async function updateProjeto(
   id: string,
   input: ProjetoFormValues
 ): Promise<ActionResult> {
-  await requireAdmin();
+  await requireAdminOrGestor();
 
   const parsed = projetoFormSchema.safeParse(input);
   if (!parsed.success) {
@@ -71,7 +71,7 @@ export async function updateProjeto(
 }
 
 export async function deleteProjeto(id: string): Promise<ActionResult> {
-  await requireAdmin();
+  await requireAdminOrGestor();
 
   const supabase = await createClient();
   const { error } = await supabase.from("projetos").delete().eq("id", id);

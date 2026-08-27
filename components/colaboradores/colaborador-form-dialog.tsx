@@ -36,17 +36,20 @@ import {
   type ColaboradorFormValues,
 } from "@/lib/validations/colaborador";
 import { createColaborador, updateColaborador } from "@/app/actions/colaboradores";
-import type { Profile } from "@/types/database";
+import type { Cliente, Profile } from "@/types/database";
 
 // Este diálogo só é usado dentro da tela de colaboradores de uma empresa —
 // nunca recebe um perfil master (master não pertence a empresa nenhuma).
-export type ColaboradorProfile = Omit<Profile, "role"> & { role: "admin" | "colaborador" };
+export type ColaboradorProfile = Omit<Profile, "role"> & {
+  role: "admin" | "gestor" | "colaborador" | "cliente";
+};
 
 type ColaboradorFormDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mode: "create" | "edit";
   colaborador?: ColaboradorProfile;
+  clientes: Pick<Cliente, "id" | "nome">[];
 };
 
 const emptyValues: ColaboradorFormValues = {
@@ -55,6 +58,7 @@ const emptyValues: ColaboradorFormValues = {
   cargo: "",
   role: "colaborador",
   status: "ativo",
+  cliente_id: "",
   avatar_url: "",
 };
 
@@ -63,6 +67,7 @@ export function ColaboradorFormDialog({
   onOpenChange,
   mode,
   colaborador,
+  clientes,
 }: ColaboradorFormDialogProps) {
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -76,10 +81,13 @@ export function ColaboradorFormDialog({
           cargo: colaborador.cargo,
           role: colaborador.role,
           status: colaborador.status,
+          cliente_id: colaborador.cliente_id ?? "",
           avatar_url: colaborador.avatar_url ?? "",
         }
       : emptyValues,
   });
+
+  const role = form.watch("role");
 
   useEffect(() => {
     if (open) {
@@ -87,7 +95,6 @@ export function ColaboradorFormDialog({
       // (só o Radix Dialog interno esconde/mostra), então sem isso o estado
       // da abertura anterior (senha temporária, form) vazaria pra próxima.
       // Remontar via `key` evitaria isso, mas cortaria a animação de saída.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTempPassword(null);
       setCopied(false);
       form.reset(
@@ -98,6 +105,7 @@ export function ColaboradorFormDialog({
               cargo: colaborador.cargo,
               role: colaborador.role,
               status: colaborador.status,
+              cliente_id: colaborador.cliente_id ?? "",
               avatar_url: colaborador.avatar_url ?? "",
             }
           : emptyValues
@@ -138,10 +146,10 @@ export function ColaboradorFormDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Colaborador criado</DialogTitle>
+            <DialogTitle>Conta criada</DialogTitle>
             <DialogDescription>
-              Compartilhe a senha temporária abaixo com o colaborador. Ela não
-              será exibida novamente.
+              Compartilhe a senha temporária abaixo com a pessoa. Ela não será
+              exibida novamente.
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center gap-2 rounded-md border bg-muted px-3 py-2 font-mono text-sm">
@@ -169,12 +177,12 @@ export function ColaboradorFormDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {mode === "create" ? "Novo colaborador" : "Editar colaborador"}
+            {mode === "create" ? "Nova conta" : "Editar conta"}
           </DialogTitle>
           <DialogDescription>
             {mode === "create"
-              ? "O colaborador recebe uma senha temporária para o primeiro acesso."
-              : "Atualize os dados do colaborador."}
+              ? "A pessoa recebe uma senha temporária para o primeiro acesso."
+              : "Atualize os dados da conta."}
           </DialogDescription>
         </DialogHeader>
 
@@ -209,19 +217,21 @@ export function ColaboradorFormDialog({
             />
 
             <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="cargo"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cargo/área</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Design, Tráfego, Dev..." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {role !== "cliente" && (
+                <FormField
+                  control={form.control}
+                  name="cargo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cargo/área</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Design, Tráfego, Dev..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <FormField
                 control={form.control}
@@ -236,8 +246,10 @@ export function ColaboradorFormDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="colaborador">Colaborador</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="colaborador">Executor</SelectItem>
+                        <SelectItem value="gestor">Gestor</SelectItem>
+                        <SelectItem value="admin">Administrador</SelectItem>
+                        <SelectItem value="cliente">Cliente (visualizador)</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -245,6 +257,38 @@ export function ColaboradorFormDialog({
                 )}
               />
             </div>
+
+            {role === "cliente" && (
+              <FormField
+                control={form.control}
+                name="cliente_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Qual cliente</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Selecione o cliente" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {clientes.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {clientes.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Nenhum cliente cadastrado ainda — cadastre em Clientes.
+                      </p>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             {mode === "edit" && (
               <FormField
@@ -296,7 +340,7 @@ export function ColaboradorFormDialog({
                 {form.formState.isSubmitting
                   ? "Salvando..."
                   : mode === "create"
-                    ? "Criar colaborador"
+                    ? "Criar conta"
                     : "Salvar alterações"}
               </Button>
             </DialogFooter>

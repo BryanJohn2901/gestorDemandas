@@ -2,7 +2,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LOGIN_DISABLED } from "@/lib/dev-flags";
-import type { Profile } from "@/types/database";
+import type { Profile, UserRole } from "@/types/database";
 
 // Nome do cookie que marca "essa sessão veio do link de recuperação de
 // senha" — ver app/auth/confirm/route.ts e app/update-password/page.tsx.
@@ -15,6 +15,7 @@ export const RECOVERY_COOKIE = "pwd_recovery";
 const DEV_PROFILE: Profile = {
   id: "00000000-0000-0000-0000-000000000000",
   empresa_id: null,
+  cliente_id: null,
   nome: "Dev",
   email: "dev@local",
   cargo: "Desenvolvimento",
@@ -116,6 +117,23 @@ export async function requireAdmin(): Promise<Profile> {
   const profile = await requireProfile();
 
   if (profile.role !== "admin") {
+    redirect("/dashboard");
+  }
+
+  return profile;
+}
+
+// Gestor opera o dia a dia (demandas/clientes/projetos) igual admin, mas
+// nunca cria/edita/promove/remove conta de ninguém — isso continua
+// exclusivo de requireAdmin().
+export function canManage(role: UserRole): boolean {
+  return role === "admin" || role === "gestor";
+}
+
+export async function requireAdminOrGestor(): Promise<Profile> {
+  const profile = await requireProfile();
+
+  if (!canManage(profile.role)) {
     redirect("/dashboard");
   }
 

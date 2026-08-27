@@ -18,7 +18,7 @@ export function NavLinks({
   return (
     <nav className="flex-1 space-y-1 p-3">
       {navItems
-        .filter((item) => !item.adminOnly || role === "admin")
+        .filter((item) => !item.roles || item.roles.includes(role))
         .map((item) => {
           const isActive =
             pathname === item.href ||

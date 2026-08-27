@@ -39,19 +39,44 @@ export async function createColaborador(
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
-  const { nome, email, cargo, role, avatar_url } = parsed.data;
+  const { nome, email, cargo, role, cliente_id, avatar_url } = parsed.data;
 
   const admin = createAdminClient();
+
+  // client de serviço bypassa RLS, então essa checagem de propriedade é a
+  // única trava contra vincular a conta a um cliente de outra empresa.
+  if (role === "cliente") {
+    const { data: cliente } = cliente_id
+      ? await admin
+          .from("clientes")
+          .select("id")
+          .eq("id", cliente_id)
+          .eq("empresa_id", currentAdmin.empresa_id!)
+          .maybeSingle()
+      : { data: null };
+
+    if (!cliente) {
+      return { success: false, error: "Cliente inválido." };
+    }
+  }
+
   const tempPassword = generateTempPassword();
 
   const { data, error } = await admin.auth.admin.createUser({
     email,
     password: tempPassword,
     email_confirm: true,
-    // empresa_id precisa ir junto aqui, não num update depois — o trigger
-    // handle_new_user() insere o profile na hora do createUser, e a
-    // constraint profiles_empresa_id_by_role checa nesse exato insert.
-    user_metadata: { nome, cargo, role, empresa_id: currentAdmin.empresa_id },
+    // empresa_id/cliente_id precisam ir juntos aqui, não num update depois
+    // — o trigger handle_new_user() insere o profile na hora do
+    // createUser(), e as constraints profiles_empresa_id_by_role /
+    // profiles_cliente_id_by_role checam nesse exato insert.
+    user_metadata: {
+      nome,
+      cargo,
+      role,
+      empresa_id: currentAdmin.empresa_id,
+      cliente_id: role === "cliente" ? cliente_id : null,
+    },
   });
 
   if (error || !data.user) {
@@ -88,7 +113,7 @@ export async function updateColaborador(
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
-  const { nome, email, cargo, role, status, avatar_url } = parsed.data;
+  const { nome, email, cargo, role, status, cliente_id, avatar_url } = parsed.data;
 
   const admin = createAdminClient();
 
@@ -102,6 +127,23 @@ export async function updateColaborador(
   // explícita, um admin conseguiria editar colaborador de outra empresa.
   if (!currentProfile || currentProfile.empresa_id !== currentAdmin.empresa_id) {
     return { success: false, error: "Colaborador não encontrado." };
+  }
+
+  // Mesma checagem de propriedade de createColaborador — necessária porque
+  // esse client também bypassa RLS.
+  if (role === "cliente") {
+    const { data: cliente } = cliente_id
+      ? await admin
+          .from("clientes")
+          .select("id")
+          .eq("id", cliente_id)
+          .eq("empresa_id", currentAdmin.empresa_id!)
+          .maybeSingle()
+      : { data: null };
+
+    if (!cliente) {
+      return { success: false, error: "Cliente inválido." };
+    }
   }
 
   if (currentProfile.email !== email) {
@@ -122,6 +164,9 @@ export async function updateColaborador(
       cargo,
       role,
       status,
+      // Sempre grava explicitamente (mesmo null) — trocar de "cliente" pra
+      // outro papel sem isso violaria profiles_cliente_id_by_role.
+      cliente_id: role === "cliente" ? cliente_id : null,
       avatar_url: avatar_url || null,
     })
     .eq("id", id);

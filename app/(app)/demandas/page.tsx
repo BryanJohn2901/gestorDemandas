@@ -1,4 +1,4 @@
-import { requireProfile } from "@/lib/auth";
+import { canManage, requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { NovaDemandaButton } from "@/components/demandas/nova-demanda-button";
 import { DemandasTable } from "@/components/demandas/demandas-table";
@@ -12,12 +12,14 @@ export default async function DemandasPage() {
 
   const [{ data: demandas }, { data: colaboradores }, { data: projetos }] = await Promise.all([
     supabase.from("demandas").select("*").order("created_at", { ascending: false }),
-    supabase.from("profiles").select("*").order("nome"),
+    // Conta cliente nunca é responsável de demanda — não oferecer como opção.
+    supabase.from("profiles").select("*").neq("role", "cliente").order("nome"),
     supabase.from("projetos").select("*, cliente:clientes(id, nome)").order("nome"),
   ]);
 
   const todosProjetos = (projetos ?? []) as ProjetoComCliente[];
   const demandasComResponsavel = withResponsavel(demandas ?? [], colaboradores ?? [], todosProjetos);
+  const podeGerenciar = canManage(profile.role);
 
   return (
     <div className="space-y-6">
@@ -25,12 +27,14 @@ export default async function DemandasPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Demandas</h1>
           <p className="text-muted-foreground">
-            {profile.role === "admin"
+            {podeGerenciar
               ? "Todas as demandas da equipe."
-              : "Demandas atribuídas a você."}
+              : profile.role === "cliente"
+                ? "Demandas do seu projeto."
+                : "Demandas atribuídas a você."}
           </p>
         </div>
-        {profile.role === "admin" && (
+        {podeGerenciar && (
           <NovaDemandaButton colaboradores={colaboradores ?? []} projetos={todosProjetos} />
         )}
       </div>
@@ -38,7 +42,7 @@ export default async function DemandasPage() {
       <DemandasTable
         demandas={demandasComResponsavel}
         colaboradores={colaboradores ?? []}
-        isAdmin={profile.role === "admin"}
+        isAdmin={podeGerenciar}
       />
     </div>
   );

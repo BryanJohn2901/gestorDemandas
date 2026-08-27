@@ -29,8 +29,15 @@ import {
   deleteColaborador,
   toggleColaboradorStatus,
 } from "@/app/actions/colaboradores";
+import type { Cliente } from "@/types/database";
 
-export function ColaboradorRowActions({ colaborador }: { colaborador: ColaboradorProfile }) {
+export function ColaboradorRowActions({
+  colaborador,
+  clientes,
+}: {
+  colaborador: ColaboradorProfile;
+  clientes: Pick<Cliente, "id" | "nome">[];
+}) {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -43,7 +50,7 @@ export function ColaboradorRowActions({ colaborador }: { colaborador: Colaborado
         toast.error(result.error);
       } else {
         toast.success(
-          nextStatus === "ativo" ? "Colaborador ativado." : "Colaborador inativado."
+          nextStatus === "ativo" ? "Conta ativada." : "Conta inativada."
         );
       }
     });
@@ -55,7 +62,7 @@ export function ColaboradorRowActions({ colaborador }: { colaborador: Colaborado
       if (!result.success) {
         toast.error(result.error);
       } else {
-        toast.success("Colaborador excluído.");
+        toast.success("Conta excluída.");
       }
       setDeleteOpen(false);
     });
@@ -99,16 +106,17 @@ export function ColaboradorRowActions({ colaborador }: { colaborador: Colaborado
         colaborador={colaborador}
         open={editOpen}
         onOpenChange={setEditOpen}
+        clientes={clientes}
       />
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir colaborador?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir conta?</AlertDialogTitle>
             <AlertDialogDescription>
               Isso remove o acesso de <strong>{colaborador.nome}</strong> e não
-              pode ser desfeito. As demandas atribuídas a ele ficarão sem
-              responsável.
+              pode ser desfeito. As demandas atribuídas a ele (se houver)
+              ficarão sem responsável.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

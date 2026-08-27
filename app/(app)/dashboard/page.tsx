@@ -1,7 +1,7 @@
 import { startOfWeek } from "date-fns";
 import { AlertTriangle, CheckCircle2, ListTodo } from "lucide-react";
 
-import { requireProfile } from "@/lib/auth";
+import { canManage, requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { logEvento } from "@/lib/eventos";
 import { StatCard } from "@/components/dashboard/stat-card";
@@ -39,7 +39,7 @@ export default async function DashboardPage() {
   );
 
   let colaboradorCounts: ColaboradorCount[] = [];
-  if (profile.role === "admin") {
+  if (canManage(profile.role)) {
     const { data: colaboradores } = await supabase
       .from("profiles")
       .select("*")
@@ -63,7 +63,7 @@ export default async function DashboardPage() {
           Olá, {profile.nome.split(" ")[0] || profile.nome}
         </h1>
         <p className="text-muted-foreground">
-          {profile.role === "admin"
+          {canManage(profile.role)
             ? "Visão geral das demandas da equipe."
             : "Visão geral das suas demandas."}
         </p>
@@ -86,7 +86,7 @@ export default async function DashboardPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <StatusDistribution counts={statusCounts} />
-        {profile.role === "admin" && (
+        {canManage(profile.role) && (
           <ColaboradorDistribution dados={colaboradorCounts} />
         )}
       </div>

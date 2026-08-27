@@ -1,4 +1,4 @@
-export type UserRole = "master" | "admin" | "colaborador"
+export type UserRole = "master" | "admin" | "gestor" | "colaborador" | "cliente"
 export type UserStatus = "ativo" | "inativo"
 export type EmpresaStatus = "ativo" | "inativo"
 
@@ -53,6 +53,7 @@ export type Pagamento = {
 export type Profile = {
   id: string
   empresa_id: string | null
+  cliente_id: string | null
   nome: string
   email: string
   cargo: string
@@ -140,7 +141,15 @@ export type Database = {
         Row: Profile
         Insert: Partial<Profile> & Pick<Profile, "id" | "nome" | "email">
         Update: Partial<Profile>
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       demandas: {
         Row: Demanda

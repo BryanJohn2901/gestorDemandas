@@ -5,7 +5,7 @@ import { ptBR } from "date-fns/locale";
 import ReactMarkdown from "react-markdown";
 import { ArrowLeft } from "lucide-react";
 
-import { requireProfile } from "@/lib/auth";
+import { canManage, requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -55,9 +55,11 @@ export default async function DemandaDetailPage({ params }: DemandaDetailPagePro
     ? await supabase.from("profiles").select("*").in("id", relatedIds)
     : { data: [] };
 
+  // Conta cliente nunca é responsável de demanda — não oferecer como opção.
   const { data: colaboradores } = await supabase
     .from("profiles")
     .select("*")
+    .neq("role", "cliente")
     .order("nome");
 
   const { data: projetos } = await supabase
@@ -72,12 +74,18 @@ export default async function DemandaDetailPage({ params }: DemandaDetailPagePro
   const criador = relatedProfiles?.find((p) => p.id === demanda.criado_por);
   const atrasada = isAtrasada(demanda.prazo, demanda.status);
   const isResponsavel = demanda.responsavel_id === profile.id;
-  const podeControlarTimer = isResponsavel || profile.role === "admin";
+  const podeControlarTimer = isResponsavel || canManage(profile.role);
 
-  const { data: registrosTempo } = await supabase
-    .from("registros_tempo")
-    .select("started_at, ended_at, profile_id")
-    .eq("demanda_id", demanda.id);
+  // Cliente nunca vê tempo trabalhado — nem busca no banco, nem seção na
+  // tela (não é só esconder o botão, é o card inteiro).
+  const mostraTempo = profile.role !== "cliente";
+
+  const { data: registrosTempo } = mostraTempo
+    ? await supabase
+        .from("registros_tempo")
+        .select("started_at, ended_at, profile_id")
+        .eq("demanda_id", demanda.id)
+    : { data: [] };
 
   // Server Component roda de novo a cada request — Date.now() aqui é
   // seguro apesar do lint (mesmo raciocínio de app/master/atividade/page.tsx).
@@ -116,7 +124,7 @@ export default async function DemandaDetailPage({ params }: DemandaDetailPagePro
           </div>
         </div>
 
-        {profile.role === "admin" && (
+        {canManage(profile.role) && (
           <DemandaDetailActions
             demanda={demanda}
             colaboradores={colaboradores ?? []}
@@ -125,25 +133,27 @@ export default async function DemandaDetailPage({ params }: DemandaDetailPagePro
         )}
       </div>
 
-      {profile.role !== "admin" && isResponsavel && (
+      {!canManage(profile.role) && isResponsavel && (
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium">Atualizar status:</span>
           <DemandaStatusSelect demandaId={demanda.id} status={demanda.status} />
         </div>
       )}
 
-      <Card>
-        <CardContent className="flex flex-col gap-2">
-          <div className="text-xs font-medium text-muted-foreground">Tempo trabalhado</div>
-          <DemandaTimer
-            key={`${emAndamento}-${segundosBase}`}
-            demandaId={demanda.id}
-            segundosBase={segundosBase}
-            emAndamento={emAndamento}
-            podeControlar={podeControlarTimer}
-          />
-        </CardContent>
-      </Card>
+      {mostraTempo && (
+        <Card>
+          <CardContent className="flex flex-col gap-2">
+            <div className="text-xs font-medium text-muted-foreground">Tempo trabalhado</div>
+            <DemandaTimer
+              key={`${emAndamento}-${segundosBase}`}
+              demandaId={demanda.id}
+              segundosBase={segundosBase}
+              emAndamento={emAndamento}
+              podeControlar={podeControlarTimer}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="grid gap-6 sm:grid-cols-2">

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { requireProfile } from "@/lib/auth";
@@ -13,6 +14,10 @@ import type { Demanda, ProjetoComCliente } from "@/types/database";
 
 export default async function MinhasTarefasPage() {
   const profile = await requireProfile();
+  // Cliente nunca é responsável de demanda — essa tela não se aplica a ele.
+  if (profile.role === "cliente") {
+    redirect("/demandas");
+  }
   const supabase = await createClient();
 
   const [{ data: demandas }, { data: projetos }] = await Promise.all([

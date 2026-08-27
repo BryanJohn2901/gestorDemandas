@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin, requireProfile } from "@/lib/auth";
+import { canManage, requireAdminOrGestor, requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { logEvento } from "@/lib/eventos";
 import {
@@ -17,7 +17,7 @@ type ActionResult =
 export async function createDemanda(
   input: DemandaFormValues
 ): Promise<ActionResult> {
-  const admin = await requireAdmin();
+  const admin = await requireAdminOrGestor();
 
   const parsed = demandaFormSchema.safeParse(input);
   if (!parsed.success) {
@@ -69,11 +69,12 @@ export async function updateDemanda(
   id: string,
   input: DemandaFormValues
 ): Promise<ActionResult> {
-  // Edição completa (título, prioridade, prazo, responsável...) é só do admin.
-  // Colaborador atualiza status pela updateDemandaStatus abaixo — a UI já
-  // esconde esse formulário pra ele, mas a Server Action também precisa
-  // recusar, já que uma UI escondida não é controle de acesso de verdade.
-  await requireAdmin();
+  // Edição completa (título, prioridade, prazo, responsável...) é só de
+  // admin/gestor. Colaborador atualiza status pela updateDemandaStatus
+  // abaixo — a UI já esconde esse formulário pra ele, mas a Server Action
+  // também precisa recusar, já que uma UI escondida não é controle de
+  // acesso de verdade.
+  await requireAdminOrGestor();
 
   const parsed = demandaFormSchema.safeParse(input);
   if (!parsed.success) {
@@ -128,7 +129,7 @@ export async function updateDemandaStatus(
   const profile = await requireProfile();
   const supabase = await createClient();
 
-  if (profile.role !== "admin") {
+  if (!canManage(profile.role)) {
     const { data: existing } = await supabase
       .from("demandas")
       .select("responsavel_id")
@@ -160,7 +161,7 @@ export async function updateDemandaStatus(
 }
 
 export async function deleteDemanda(id: string): Promise<ActionResult> {
-  await requireAdmin();
+  await requireAdminOrGestor();
 
   const supabase = await createClient();
   const { error } = await supabase.from("demandas").delete().eq("id", id);

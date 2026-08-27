@@ -1,4 +1,5 @@
-import { requireProfile } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { canManage, requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { logEvento } from "@/lib/eventos";
 import { NovaDemandaButton } from "@/components/demandas/nova-demanda-button";
@@ -9,12 +10,18 @@ import type { ProjetoComCliente } from "@/types/database";
 
 export default async function BoardPage() {
   const profile = await requireProfile();
+  // Nav já esconde esse link pra cliente, mas URL é digitável — arrastar
+  // cartão não faz sentido pra um visualizador read-only.
+  if (profile.role === "cliente") {
+    redirect("/demandas");
+  }
   await logEvento("view_board");
   const supabase = await createClient();
 
   const [{ data: demandas }, { data: colaboradores }, { data: projetos }] = await Promise.all([
     supabase.from("demandas").select("*").order("created_at", { ascending: false }),
-    supabase.from("profiles").select("*").order("nome"),
+    // Conta cliente nunca é responsável de demanda — não oferecer como opção.
+    supabase.from("profiles").select("*").neq("role", "cliente").order("nome"),
     supabase.from("projetos").select("*, cliente:clientes(id, nome)").order("nome"),
   ]);
 
@@ -30,7 +37,7 @@ export default async function BoardPage() {
             Arraste os cartões para mudar o status.
           </p>
         </div>
-        {profile.role === "admin" && (
+        {canManage(profile.role) && (
           <NovaDemandaButton colaboradores={colaboradores ?? []} projetos={todosProjetos} />
         )}
       </div>

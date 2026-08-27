@@ -34,6 +34,13 @@ function initials(nome: string) {
     .join("");
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Administrador",
+  gestor: "Gestor",
+  colaborador: "Executor",
+  cliente: "Cliente",
+};
+
 export default async function ColaboradoresPage({
   searchParams,
 }: ColaboradoresPageProps) {
@@ -41,10 +48,13 @@ export default async function ColaboradoresPage({
   const params = await searchParams;
 
   const supabase = await createClient();
-  const { data: colaboradores } = await supabase
-    .from("profiles")
-    .select("*")
-    .order("nome");
+  const [{ data: colaboradores }, { data: clientes }] = await Promise.all([
+    supabase.from("profiles").select("*").order("nome"),
+    supabase.from("clientes").select("id, nome").order("nome"),
+  ]);
+
+  const todosClientes = clientes ?? [];
+  const clienteNomeById = new Map(todosClientes.map((c) => [c.id, c.nome]));
 
   const all = colaboradores ?? [];
   const cargos = Array.from(
@@ -70,7 +80,7 @@ export default async function ColaboradoresPage({
             Cadastre e gerencie o acesso da equipe.
           </p>
         </div>
-        <NovoColaboradorButton />
+        <NovoColaboradorButton clientes={todosClientes} />
       </div>
 
       <ColaboradoresFilters cargos={cargos} />
@@ -93,7 +103,7 @@ export default async function ColaboradoresPage({
                   colSpan={5}
                   className="py-10 text-center text-muted-foreground"
                 >
-                  Nenhum colaborador encontrado.
+                  Nenhuma conta encontrada.
                 </TableCell>
               </TableRow>
             )}
@@ -115,13 +125,18 @@ export default async function ColaboradoresPage({
                       <div className="text-sm text-muted-foreground">
                         {colaborador.email}
                       </div>
+                      {colaborador.role === "cliente" && colaborador.cliente_id && (
+                        <div className="text-xs text-muted-foreground">
+                          {clienteNomeById.get(colaborador.cliente_id) ?? "—"}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </TableCell>
                 <TableCell>{colaborador.cargo || "—"}</TableCell>
                 <TableCell>
                   <Badge variant={colaborador.role === "admin" ? "default" : "secondary"}>
-                    {colaborador.role === "admin" ? "Admin" : "Colaborador"}
+                    {ROLE_LABELS[colaborador.role] ?? colaborador.role}
                   </Badge>
                 </TableCell>
                 <TableCell>
@@ -134,6 +149,7 @@ export default async function ColaboradoresPage({
                 <TableCell>
                   <ColaboradorRowActions
                     colaborador={colaborador as ColaboradorProfile}
+                    clientes={todosClientes}
                   />
                 </TableCell>
               </TableRow>

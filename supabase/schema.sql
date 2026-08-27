@@ -29,34 +29,9 @@ create table public.empresas (
 
 comment on table public.empresas is 'Empresas-cliente do SaaS. Cada uma tem seu próprio admin e colaboradores.';
 
--- profiles: perfil estendido de auth.users (1:1). Criado automaticamente via
--- trigger sempre que um novo usuário é registrado no Supabase Auth.
--- empresa_id é nulo só pra master (dono da plataforma, gerencia as
--- empresas mas não pertence a nenhuma) — pra admin/colaborador é sempre
--- preenchido (ver constraint profiles_empresa_id_by_role abaixo).
-create table public.profiles (
-  id uuid primary key references auth.users (id) on delete cascade,
-  empresa_id uuid references public.empresas (id) on delete cascade,
-  nome text not null default '',
-  email text not null,
-  cargo text not null default '',
-  role text not null default 'colaborador' check (role in ('master', 'admin', 'colaborador')),
-  status text not null default 'ativo' check (status in ('ativo', 'inativo')),
-  avatar_url text,
-  created_at timestamptz not null default now(),
-  last_seen_at timestamptz,
-  constraint profiles_empresa_id_by_role check (
-    (role = 'master' and empresa_id is null)
-    or (role <> 'master' and empresa_id is not null)
-  )
-);
-
-comment on table public.profiles is 'Perfil dos usuários (master, admin ou colaborador), 1:1 com auth.users.';
-
-create index profiles_empresa_id_idx on public.profiles (empresa_id);
-
 -- clientes: clientes de cada empresa (tenant) — dono dos projetos, pra
--- controle e filtro de demandas.
+-- controle e filtro de demandas. Vem antes de profiles porque
+-- profiles.cliente_id referencia essa tabela.
 create table public.clientes (
   id uuid primary key default gen_random_uuid(),
   empresa_id uuid not null references public.empresas (id) on delete cascade,
@@ -67,6 +42,42 @@ create table public.clientes (
 comment on table public.clientes is 'Clientes de cada empresa (tenant) — dono dos projetos, pra controle e filtro de demandas.';
 
 create index clientes_empresa_id_idx on public.clientes (empresa_id);
+
+-- profiles: perfil estendido de auth.users (1:1). Criado automaticamente via
+-- trigger sempre que um novo usuário é registrado no Supabase Auth.
+-- empresa_id é nulo só pra master (dono da plataforma, gerencia as
+-- empresas mas não pertence a nenhuma) — pra admin/gestor/colaborador é
+-- sempre preenchido (ver constraint profiles_empresa_id_by_role abaixo).
+-- cliente_id só é preenchido pra role=cliente: qual cliente (acima) essa
+-- conta externa representa (ver profiles_cliente_id_by_role abaixo).
+create table public.profiles (
+  id uuid primary key references auth.users (id) on delete cascade,
+  empresa_id uuid references public.empresas (id) on delete cascade,
+  cliente_id uuid references public.clientes (id) on delete set null,
+  nome text not null default '',
+  email text not null,
+  cargo text not null default '',
+  role text not null default 'colaborador'
+    check (role in ('master', 'admin', 'gestor', 'colaborador', 'cliente')),
+  status text not null default 'ativo' check (status in ('ativo', 'inativo')),
+  avatar_url text,
+  created_at timestamptz not null default now(),
+  last_seen_at timestamptz,
+  constraint profiles_empresa_id_by_role check (
+    (role = 'master' and empresa_id is null)
+    or (role <> 'master' and empresa_id is not null)
+  ),
+  constraint profiles_cliente_id_by_role check (
+    (role = 'cliente' and cliente_id is not null)
+    or (role <> 'cliente' and cliente_id is null)
+  )
+);
+
+comment on table public.profiles is 'Perfil dos usuários (master, admin, gestor, colaborador ou cliente), 1:1 com auth.users.';
+comment on column public.profiles.cliente_id is 'Só preenchido pra role=cliente: qual cliente essa conta externa representa.';
+
+create index profiles_empresa_id_idx on public.profiles (empresa_id);
+create index profiles_cliente_id_idx on public.profiles (cliente_id);
 
 -- projetos: projetos de um cliente — demanda se liga a um projeto (opcional).
 create table public.projetos (
@@ -212,10 +223,11 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, empresa_id, nome, email, cargo, role, status)
+  insert into public.profiles (id, empresa_id, cliente_id, nome, email, cargo, role, status)
   values (
     new.id,
     nullif(new.raw_user_meta_data ->> 'empresa_id', '')::uuid,
+    nullif(new.raw_user_meta_data ->> 'cliente_id', '')::uuid,
     coalesce(new.raw_user_meta_data ->> 'nome', ''),
     new.email,
     coalesce(new.raw_user_meta_data ->> 'cargo', ''),
@@ -325,6 +337,65 @@ $$;
 revoke execute on function public.current_empresa_id() from public;
 grant execute on function public.current_empresa_id() to authenticated;
 
+-- Helper: admin OU gestor (ambos operam o dia a dia — demandas, clientes,
+-- projetos). Só Administrador continua exclusivo pra contas de acesso
+-- (profiles_insert/update/delete_admin, abaixo, seguem só is_admin()).
+create function public.is_admin_or_gestor()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role in ('admin', 'gestor')
+  );
+$$;
+
+-- Postgres concede EXECUTE a PUBLIC por padrão em função nova, e o
+-- Supabase também concede um grant direto a anon/authenticated na criação
+-- — revogar só de PUBLIC não fecha o anon (mordeu o projeto antes, ver
+-- migração 007), por isso o revoke explícito de anon também.
+revoke execute on function public.is_admin_or_gestor() from public;
+revoke execute on function public.is_admin_or_gestor() from anon;
+grant execute on function public.is_admin_or_gestor() to authenticated;
+
+-- Helper: verifica se o usuário autenticado é cliente (visualizador
+-- externo, só lê o(s) projeto(s) do cliente dele).
+create function public.is_cliente()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role = 'cliente'
+  );
+$$;
+
+revoke execute on function public.is_cliente() from public;
+revoke execute on function public.is_cliente() from anon;
+grant execute on function public.is_cliente() to authenticated;
+
+-- Helper: qual cliente (tabela clientes) o usuário autenticado representa
+-- (null pra quem não é role=cliente).
+create function public.current_cliente_id()
+returns uuid
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select cliente_id from public.profiles where id = auth.uid();
+$$;
+
+revoke execute on function public.current_cliente_id() from public;
+revoke execute on function public.current_cliente_id() from anon;
+grant execute on function public.current_cliente_id() to authenticated;
+
 -- Presença/uso: funções security definer em vez de policy de self-update em
 -- profiles ou de insert direto em eventos_uso. Não existe policy de
 -- self-update em profiles hoje (só profiles_update_admin, que colaborador e
@@ -407,10 +478,30 @@ create policy "empresas_select_own"
 -- (select auth.<fn>()) em vez de auth.<fn>() direto em todas as policies
 -- abaixo: evita reavaliar a função por linha, só uma vez por statement.
 
+-- Cliente (visualizador externo) não lê o roster inteiro da empresa como os
+-- demais papéis leem — só resolve nome/avatar de quem é responsavel_id
+-- numa demanda que ele já pode ver (precisa disso só pra exibir "quem tá
+-- trabalhando" na UI).
 create policy "profiles_select"
   on public.profiles for select
   to authenticated
-  using (id = (select auth.uid()) or empresa_id = (select public.current_empresa_id()));
+  using (
+    id = (select auth.uid())
+    or (
+      empresa_id = (select public.current_empresa_id())
+      and not (select public.is_cliente())
+    )
+    or (
+      (select public.is_cliente())
+      and exists (
+        select 1 from public.demandas d
+        join public.projetos p on p.id = d.projeto_id
+        where d.responsavel_id = profiles.id
+          and d.empresa_id = (select public.current_empresa_id())
+          and p.cliente_id = (select public.current_cliente_id())
+      )
+    )
+  );
 
 -- Apenas admin cria/edita/remove colaboradores da própria empresa.
 create policy "profiles_insert_admin"
@@ -430,36 +521,47 @@ create policy "profiles_delete_admin"
 
 -- --- clientes -----------------------------------------------------------
 
+-- Cliente só vê a própria linha (não o cadastro inteiro de clientes da
+-- empresa) — sem isso um Visualizador veria nome de todo cliente da
+-- agência, não só o dele.
 create policy "clientes_select" on public.clientes
   for select to authenticated
-  using (empresa_id = (select public.current_empresa_id()));
+  using (
+    empresa_id = (select public.current_empresa_id())
+    and (not (select public.is_cliente()) or id = (select public.current_cliente_id()))
+  );
 
 create policy "clientes_insert_admin" on public.clientes
   for insert to authenticated
-  with check ((select public.is_admin()) and empresa_id = (select public.current_empresa_id()));
+  with check ((select public.is_admin_or_gestor()) and empresa_id = (select public.current_empresa_id()));
 
 create policy "clientes_update_admin" on public.clientes
   for update to authenticated
-  using ((select public.is_admin()) and empresa_id = (select public.current_empresa_id()))
-  with check ((select public.is_admin()) and empresa_id = (select public.current_empresa_id()));
+  using ((select public.is_admin_or_gestor()) and empresa_id = (select public.current_empresa_id()))
+  with check ((select public.is_admin_or_gestor()) and empresa_id = (select public.current_empresa_id()));
 
 create policy "clientes_delete_admin" on public.clientes
   for delete to authenticated
-  using ((select public.is_admin()) and empresa_id = (select public.current_empresa_id()));
+  using ((select public.is_admin_or_gestor()) and empresa_id = (select public.current_empresa_id()));
 
 -- --- projetos -----------------------------------------------------------
 
+-- Cliente só vê projetos do próprio cliente_id (não todo o cadastro de
+-- projetos da agência).
 create policy "projetos_select" on public.projetos
   for select to authenticated
-  using (empresa_id = (select public.current_empresa_id()));
+  using (
+    empresa_id = (select public.current_empresa_id())
+    and (not (select public.is_cliente()) or cliente_id = (select public.current_cliente_id()))
+  );
 
 -- O exists() garante que o cliente_id escolhido pertence à própria empresa
--- do admin — sem isso, um insert/update direto (fora da UI) poderia ligar
--- um projeto a um cliente de outra empresa, mesmo com empresa_id certo.
+-- do admin/gestor — sem isso, um insert/update direto (fora da UI) poderia
+-- ligar um projeto a um cliente de outra empresa, mesmo com empresa_id certo.
 create policy "projetos_insert_admin" on public.projetos
   for insert to authenticated
   with check (
-    (select public.is_admin())
+    (select public.is_admin_or_gestor())
     and empresa_id = (select public.current_empresa_id())
     and exists (
       select 1 from public.clientes c
@@ -469,9 +571,9 @@ create policy "projetos_insert_admin" on public.projetos
 
 create policy "projetos_update_admin" on public.projetos
   for update to authenticated
-  using ((select public.is_admin()) and empresa_id = (select public.current_empresa_id()))
+  using ((select public.is_admin_or_gestor()) and empresa_id = (select public.current_empresa_id()))
   with check (
-    (select public.is_admin())
+    (select public.is_admin_or_gestor())
     and empresa_id = (select public.current_empresa_id())
     and exists (
       select 1 from public.clientes c
@@ -481,27 +583,43 @@ create policy "projetos_update_admin" on public.projetos
 
 create policy "projetos_delete_admin" on public.projetos
   for delete to authenticated
-  using ((select public.is_admin()) and empresa_id = (select public.current_empresa_id()));
+  using ((select public.is_admin_or_gestor()) and empresa_id = (select public.current_empresa_id()));
 
 -- --- demandas ----------------------------------------------------------------
 
--- Admin vê todas as demandas da própria empresa; colaborador vê apenas as
--- que são dele.
+-- Admin/gestor vê todas as demandas da própria empresa; colaborador vê
+-- apenas as que são dele; cliente vê as demandas do(s) projeto(s) do
+-- cliente dele (nunca as sem projeto — o exists() nunca bate pra
+-- projeto_id null).
 create policy "demandas_select"
   on public.demandas for select
   to authenticated
   using (
     empresa_id = (select public.current_empresa_id())
-    and ((select public.is_admin()) or responsavel_id = (select auth.uid()))
+    and (
+      (select public.is_admin_or_gestor())
+      or responsavel_id = (select auth.uid())
+      or (
+        (select public.is_cliente())
+        and exists (
+          select 1 from public.projetos p
+          where p.id = demandas.projeto_id and p.cliente_id = (select public.current_cliente_id())
+        )
+      )
+    )
   );
 
--- Apenas admin cria demandas, sempre na própria empresa. O exists() garante
--- que o projeto escolhido (se houver) pertence à própria empresa.
+-- Admin/gestor cria demandas, sempre na própria empresa. O primeiro
+-- exists() garante que o projeto escolhido (se houver) pertence à própria
+-- empresa; o segundo garante que responsavel_id nunca é uma conta cliente
+-- (sem essa trava, atribuir por engano uma demanda a um Visualizador faria
+-- ele bater na cláusula "responsavel_id = auth.uid()" de demandas_update e
+-- conseguir mudar status).
 create policy "demandas_insert_admin"
   on public.demandas for insert
   to authenticated
   with check (
-    (select public.is_admin())
+    (select public.is_admin_or_gestor())
     and empresa_id = (select public.current_empresa_id())
     and (
       projeto_id is null
@@ -510,25 +628,44 @@ create policy "demandas_insert_admin"
         where p.id = demandas.projeto_id and p.empresa_id = (select public.current_empresa_id())
       )
     )
+    and (
+      responsavel_id is null
+      or exists (
+        select 1 from public.profiles r
+        where r.id = demandas.responsavel_id
+          and r.empresa_id = (select public.current_empresa_id())
+          and r.role <> 'cliente'
+      )
+    )
   );
 
--- Admin atualiza qualquer demanda da própria empresa; colaborador só
--- atualiza as suas (ex: mudar status ao mover no Kanban).
+-- Admin/gestor atualiza qualquer demanda da própria empresa; colaborador só
+-- atualiza as suas (ex: mudar status ao mover no Kanban); cliente nunca
+-- atualiza nada (não bate em nenhuma das duas condições do using()).
 create policy "demandas_update"
   on public.demandas for update
   to authenticated
   using (
     empresa_id = (select public.current_empresa_id())
-    and ((select public.is_admin()) or responsavel_id = (select auth.uid()))
+    and ((select public.is_admin_or_gestor()) or responsavel_id = (select auth.uid()))
   )
   with check (
     empresa_id = (select public.current_empresa_id())
-    and ((select public.is_admin()) or responsavel_id = (select auth.uid()))
+    and ((select public.is_admin_or_gestor()) or responsavel_id = (select auth.uid()))
     and (
       projeto_id is null
       or exists (
         select 1 from public.projetos p
         where p.id = demandas.projeto_id and p.empresa_id = (select public.current_empresa_id())
+      )
+    )
+    and (
+      responsavel_id is null
+      or exists (
+        select 1 from public.profiles r
+        where r.id = demandas.responsavel_id
+          and r.empresa_id = (select public.current_empresa_id())
+          and r.role <> 'cliente'
       )
     )
   );
@@ -548,7 +685,7 @@ begin
     raise exception 'empresa_id de uma demanda não pode ser alterado.';
   end if;
 
-  if not public.is_admin() then
+  if not public.is_admin_or_gestor() then
     if new.titulo is distinct from old.titulo
       or new.descricao is distinct from old.descricao
       or new.responsavel_id is distinct from old.responsavel_id
@@ -558,7 +695,7 @@ begin
       or new.link_entrega is distinct from old.link_entrega
       or new.criado_por is distinct from old.criado_por
     then
-      raise exception 'Apenas administradores podem editar esses campos. Colaboradores só podem atualizar o status.';
+      raise exception 'Apenas administradores e gestores podem editar esses campos. Demais perfis só podem atualizar o status.';
     end if;
   end if;
   return new;
@@ -571,19 +708,20 @@ create trigger enforce_demanda_update_scope
   before update on public.demandas
   for each row execute function public.enforce_demanda_update_scope();
 
--- Apenas admin remove demandas da própria empresa.
+-- Admin/gestor remove demandas da própria empresa.
 create policy "demandas_delete_admin"
   on public.demandas for delete
   to authenticated
-  using ((select public.is_admin()) and empresa_id = (select public.current_empresa_id()));
+  using ((select public.is_admin_or_gestor()) and empresa_id = (select public.current_empresa_id()));
 
 -- --- comentarios ---------------------------------------------------------------
 --
 -- Sem coluna empresa_id própria — escopa via join com demandas, que já é
 -- escopada por empresa.
 
--- Pode ler/comentar quem tem acesso à demanda (admin ou responsável) na
--- própria empresa.
+-- Pode ler/comentar quem tem acesso à demanda (admin/gestor ou
+-- responsável) na própria empresa. Deliberado: cliente nunca vê
+-- comentários internos, mesmo os das demandas do projeto dele.
 create policy "comentarios_select"
   on public.comentarios for select
   to authenticated
@@ -592,7 +730,7 @@ create policy "comentarios_select"
       select 1 from public.demandas d
       where d.id = comentarios.demanda_id
         and d.empresa_id = (select public.current_empresa_id())
-        and ((select public.is_admin()) or d.responsavel_id = (select auth.uid()))
+        and ((select public.is_admin_or_gestor()) or d.responsavel_id = (select auth.uid()))
     )
   );
 
@@ -605,7 +743,7 @@ create policy "comentarios_insert"
       select 1 from public.demandas d
       where d.id = comentarios.demanda_id
         and d.empresa_id = (select public.current_empresa_id())
-        and ((select public.is_admin()) or d.responsavel_id = (select auth.uid()))
+        and ((select public.is_admin_or_gestor()) or d.responsavel_id = (select auth.uid()))
     )
   );
 
@@ -630,9 +768,10 @@ create policy "pagamentos_select_master"
 
 -- --- registros_tempo --------------------------------------------------------
 --
--- Admin vê o tempo de qualquer demanda da própria empresa; colaborador só
--- vê o tempo das demandas em que é responsável. Só o dono do registro pode
--- pausar (fechar ended_at) — nem admin pausa o timer de outra pessoa.
+-- Admin/gestor vê o tempo de qualquer demanda da própria empresa;
+-- colaborador só vê o tempo das demandas em que é responsável. Só o dono
+-- do registro pode pausar (fechar ended_at) — nem admin pausa o timer de
+-- outra pessoa. Deliberado: cliente nunca vê tempo trabalhado.
 
 create policy "registros_tempo_select"
   on public.registros_tempo for select
@@ -642,7 +781,7 @@ create policy "registros_tempo_select"
       select 1 from public.demandas d
       where d.id = registros_tempo.demanda_id
         and d.empresa_id = (select public.current_empresa_id())
-        and ((select public.is_admin()) or d.responsavel_id = (select auth.uid()))
+        and ((select public.is_admin_or_gestor()) or d.responsavel_id = (select auth.uid()))
     )
   );
 
@@ -655,7 +794,7 @@ create policy "registros_tempo_insert"
       select 1 from public.demandas d
       where d.id = registros_tempo.demanda_id
         and d.empresa_id = (select public.current_empresa_id())
-        and ((select public.is_admin()) or d.responsavel_id = (select auth.uid()))
+        and ((select public.is_admin_or_gestor()) or d.responsavel_id = (select auth.uid()))
     )
   );
 

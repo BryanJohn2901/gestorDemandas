@@ -40,8 +40,12 @@ export function UserMenu({ profile }: { profile: Profile }) {
             {profile.role === "master"
               ? "Master"
               : profile.role === "admin"
-                ? "Admin"
-                : profile.cargo || "Colaborador"}
+                ? "Administrador"
+                : profile.role === "gestor"
+                  ? "Gestor"
+                  : profile.role === "cliente"
+                    ? "Visualizador"
+                    : profile.cargo || "Executor"}
           </Badge>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

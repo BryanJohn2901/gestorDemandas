@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/auth";
+import { requireAdminOrGestor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import {
   Table,
@@ -15,7 +15,7 @@ import { ProjetoRowActions } from "@/components/projetos/projeto-row-actions";
 import type { ProjetoComCliente } from "@/types/database";
 
 export default async function ClientesPage() {
-  await requireAdmin();
+  await requireAdminOrGestor();
 
   const supabase = await createClient();
   const [{ data: clientes }, { data: projetos }] = await Promise.all([
