@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Gestor de Demandas · Nexo",
-  description: "Gerenciamento de demandas e tarefas da equipe — Nexo",
+  title: "TaskMonster",
+  description: "Gestão de demandas, clientes e projetos para equipes.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
