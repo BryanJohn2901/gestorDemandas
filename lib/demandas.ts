@@ -71,6 +71,14 @@ export function isAtrasada(prazo: string | null, status: DemandaStatus) {
   return new Date(`${prazo}T00:00:00`) < today;
 }
 
+export function formatDuracao(totalSegundos: number): string {
+  const segundos = Math.max(0, Math.floor(totalSegundos));
+  const h = Math.floor(segundos / 3600);
+  const m = Math.floor((segundos % 3600) / 60);
+  const s = segundos % 60;
+  return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
+}
+
 export function withResponsavel(
   demandas: Demanda[],
   profiles: Pick<Profile, "id" | "nome" | "avatar_url">[]

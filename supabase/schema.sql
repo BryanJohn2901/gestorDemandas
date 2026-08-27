@@ -146,6 +146,25 @@ create table public.pagamentos (
 
 create index pagamentos_empresa_id_idx on public.pagamentos (empresa_id);
 
+-- registros_tempo: intervalos de tempo trabalhado por demanda (start/pause
+-- do timer). Soma dos intervalos = tempo total gasto.
+create table public.registros_tempo (
+  id uuid primary key default gen_random_uuid(),
+  demanda_id uuid not null references public.demandas (id) on delete cascade,
+  profile_id uuid not null references public.profiles (id) on delete cascade,
+  started_at timestamptz not null default now(),
+  ended_at timestamptz
+);
+
+comment on table public.registros_tempo is 'Intervalos de tempo trabalhado por demanda (start/pause). Soma dos intervalos = tempo total gasto.';
+
+create index registros_tempo_demanda_id_idx on public.registros_tempo (demanda_id);
+create index registros_tempo_profile_id_idx on public.registros_tempo (profile_id);
+
+-- Só um timer aberto por vez, por pessoa (em qualquer demanda).
+create unique index registros_tempo_um_aberto_por_pessoa
+  on public.registros_tempo (profile_id) where ended_at is null;
+
 -- ============================================================================
 -- 2. Triggers utilitários
 -- ============================================================================
@@ -221,6 +240,7 @@ alter table public.pre_cadastros enable row level security;
 -- (server-only). RLS habilitada sem policy = default-deny total pra
 -- anon/authenticated, service_role ignora RLS de qualquer forma.
 alter table public.pagamentos enable row level security;
+alter table public.registros_tempo enable row level security;
 
 -- Helper: verifica se o usuário autenticado é admin, sem recursão de RLS
 -- (security definer roda com o dono da função, que ignora as policies).
@@ -502,6 +522,43 @@ create policy "pagamentos_select_master"
   on public.pagamentos for select
   to authenticated
   using ((select public.is_master()));
+
+-- --- registros_tempo --------------------------------------------------------
+--
+-- Admin vê o tempo de qualquer demanda da própria empresa; colaborador só
+-- vê o tempo das demandas em que é responsável. Só o dono do registro pode
+-- pausar (fechar ended_at) — nem admin pausa o timer de outra pessoa.
+
+create policy "registros_tempo_select"
+  on public.registros_tempo for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.demandas d
+      where d.id = registros_tempo.demanda_id
+        and d.empresa_id = (select public.current_empresa_id())
+        and ((select public.is_admin()) or d.responsavel_id = (select auth.uid()))
+    )
+  );
+
+create policy "registros_tempo_insert"
+  on public.registros_tempo for insert
+  to authenticated
+  with check (
+    profile_id = (select auth.uid())
+    and exists (
+      select 1 from public.demandas d
+      where d.id = registros_tempo.demanda_id
+        and d.empresa_id = (select public.current_empresa_id())
+        and ((select public.is_admin()) or d.responsavel_id = (select auth.uid()))
+    )
+  );
+
+create policy "registros_tempo_update_own"
+  on public.registros_tempo for update
+  to authenticated
+  using (profile_id = (select auth.uid()))
+  with check (profile_id = (select auth.uid()));
 
 -- ============================================================================
 -- 4. Primeiro usuário master

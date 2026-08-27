@@ -98,6 +98,14 @@ export type Comentario = {
   created_at: string
 }
 
+export type RegistroTempo = {
+  id: string
+  demanda_id: string
+  profile_id: string
+  started_at: string
+  ended_at: string | null
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -142,6 +150,12 @@ export type Database = {
         Row: Pagamento
         Insert: Partial<Pagamento> & Pick<Pagamento, "empresa_id" | "asaas_payment_id" | "valor" | "status" | "vencimento">
         Update: Partial<Pagamento>
+        Relationships: []
+      }
+      registros_tempo: {
+        Row: RegistroTempo
+        Insert: Partial<RegistroTempo> & Pick<RegistroTempo, "demanda_id" | "profile_id">
+        Update: Partial<RegistroTempo>
         Relationships: []
       }
     }

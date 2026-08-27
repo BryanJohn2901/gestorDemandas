@@ -13,6 +13,7 @@ import { StatusBadge } from "@/components/demandas/status-badge";
 import { PrioridadeBadge } from "@/components/demandas/prioridade-badge";
 import { DemandaDetailActions } from "@/components/demandas/demanda-detail-actions";
 import { DemandaStatusSelect } from "@/components/demandas/demanda-status-select";
+import { DemandaTimer } from "@/components/demandas/demanda-timer";
 import { isAtrasada } from "@/lib/demandas";
 import { cn } from "@/lib/utils";
 
@@ -62,6 +63,25 @@ export default async function DemandaDetailPage({ params }: DemandaDetailPagePro
   const criador = relatedProfiles?.find((p) => p.id === demanda.criado_por);
   const atrasada = isAtrasada(demanda.prazo, demanda.status);
   const isResponsavel = demanda.responsavel_id === profile.id;
+  const podeControlarTimer = isResponsavel || profile.role === "admin";
+
+  const { data: registrosTempo } = await supabase
+    .from("registros_tempo")
+    .select("started_at, ended_at, profile_id")
+    .eq("demanda_id", demanda.id);
+
+  // Server Component roda de novo a cada request — Date.now() aqui é
+  // seguro apesar do lint (mesmo raciocínio de app/master/atividade/page.tsx).
+  // eslint-disable-next-line react-hooks/purity
+  const agora = Date.now();
+  const segundosBase = (registrosTempo ?? []).reduce((total, registro) => {
+    const inicio = new Date(registro.started_at).getTime();
+    const fim = registro.ended_at ? new Date(registro.ended_at).getTime() : agora;
+    return total + (fim - inicio) / 1000;
+  }, 0);
+  const emAndamento = (registrosTempo ?? []).some(
+    (registro) => registro.ended_at === null && registro.profile_id === profile.id
+  );
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -98,6 +118,19 @@ export default async function DemandaDetailPage({ params }: DemandaDetailPagePro
           <DemandaStatusSelect demandaId={demanda.id} status={demanda.status} />
         </div>
       )}
+
+      <Card>
+        <CardContent className="flex flex-col gap-2">
+          <div className="text-xs font-medium text-muted-foreground">Tempo trabalhado</div>
+          <DemandaTimer
+            key={`${emAndamento}-${segundosBase}`}
+            demandaId={demanda.id}
+            segundosBase={segundosBase}
+            emAndamento={emAndamento}
+            podeControlar={podeControlarTimer}
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="grid gap-6 sm:grid-cols-2">
