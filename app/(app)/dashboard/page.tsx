@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, ListTodo } from "lucide-react";
 
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { logEvento } from "@/lib/eventos";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { StatusDistribution } from "@/components/dashboard/status-distribution";
 import {
@@ -15,6 +16,7 @@ import type { Demanda, DemandaStatus, Profile } from "@/types/database";
 
 export default async function DashboardPage() {
   const profile = await requireProfile();
+  await logEvento("view_dashboard");
   const supabase = await createClient();
 
   const { data: demandasData } = await supabase.from("demandas").select("*");

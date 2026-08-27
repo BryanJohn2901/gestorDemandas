@@ -79,6 +79,13 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           >
             Esqueci minha senha
           </Link>
+
+          <Link
+            href="/cadastro"
+            className="mt-2 block text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
+          >
+            Criar workspace
+          </Link>
         </CardContent>
       </Card>
     </main>

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { RECOVERY_COOKIE } from "@/lib/auth";
+import { logEvento } from "@/lib/eventos";
 
 // Só permite redirecionar para um caminho relativo dentro do próprio app.
 // Sem isso, um link como /login?redirect=https://evil.com levaria o usuário
@@ -47,6 +48,7 @@ export async function signIn(formData: FormData) {
     );
   }
 
+  await logEvento("login");
   redirect(redirectTo);
 }
 

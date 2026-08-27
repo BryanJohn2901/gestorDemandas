@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin, requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { logEvento } from "@/lib/eventos";
 import {
   demandaFormSchema,
   type DemandaFormValues,
@@ -51,6 +52,7 @@ export async function createDemanda(
   revalidatePath("/demandas/board");
   revalidatePath("/demandas/minhas");
   revalidatePath("/dashboard");
+  await logEvento("create_demanda");
   return { success: true, id: data.id };
 }
 
@@ -97,6 +99,7 @@ export async function updateDemanda(
   revalidatePath("/demandas/minhas");
   revalidatePath(`/demandas/${id}`);
   revalidatePath("/dashboard");
+  await logEvento("update_demanda");
   return { success: true };
 }
 
@@ -134,6 +137,7 @@ export async function updateDemandaStatus(
   revalidatePath("/demandas/minhas");
   revalidatePath(`/demandas/${id}`);
   revalidatePath("/dashboard");
+  await logEvento("update_demanda_status");
   return { success: true };
 }
 
@@ -152,5 +156,6 @@ export async function deleteDemanda(id: string): Promise<ActionResult> {
   revalidatePath("/demandas/board");
   revalidatePath("/demandas/minhas");
   revalidatePath("/dashboard");
+  await logEvento("delete_demanda");
   return { success: true };
 }

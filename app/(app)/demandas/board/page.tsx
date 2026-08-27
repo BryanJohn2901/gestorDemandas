@@ -1,5 +1,6 @@
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { logEvento } from "@/lib/eventos";
 import { NovaDemandaButton } from "@/components/demandas/nova-demanda-button";
 import { KanbanBoard } from "@/components/demandas/kanban-board";
 import { withResponsavel } from "@/lib/demandas";
@@ -7,6 +8,7 @@ import { withResponsavel } from "@/lib/demandas";
 
 export default async function BoardPage() {
   const profile = await requireProfile();
+  await logEvento("view_board");
   const supabase = await createClient();
 
   const [{ data: demandas }, { data: colaboradores }] = await Promise.all([

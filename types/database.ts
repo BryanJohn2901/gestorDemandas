@@ -27,6 +27,15 @@ export type Profile = {
   status: UserStatus
   avatar_url: string | null
   created_at: string
+  last_seen_at: string | null
+}
+
+export type EventoUso = {
+  id: string
+  empresa_id: string
+  profile_id: string
+  acao: string
+  created_at: string
 }
 
 export type Demanda = {
@@ -84,8 +93,23 @@ export type Database = {
         Update: Partial<Comentario>
         Relationships: []
       }
+      eventos_uso: {
+        Row: EventoUso
+        Insert: Partial<EventoUso> & Pick<EventoUso, "empresa_id" | "profile_id" | "acao">
+        Update: Partial<EventoUso>
+        Relationships: []
+      }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      touch_last_seen: {
+        Args: Record<string, never>
+        Returns: void
+      }
+      log_evento: {
+        Args: { p_acao: string }
+        Returns: void
+      }
+    }
   }
 }

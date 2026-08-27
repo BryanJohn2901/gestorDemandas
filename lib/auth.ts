@@ -22,6 +22,7 @@ const DEV_PROFILE: Profile = {
   status: "ativo",
   avatar_url: null,
   created_at: new Date().toISOString(),
+  last_seen_at: null,
 };
 
 export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
@@ -41,6 +42,19 @@ export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
   return profile;
 });
 
+// Fire-and-forget, uma vez por request (cache() aqui é só pra não chamar de
+// novo a cada requireProfile() dentro do mesmo request — o throttle real de
+// "no máximo 1x por minuto" já é feito dentro da função SQL).
+const touchLastSeen = cache(async () => {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("touch_last_seen");
+    if (error) console.error("[touchLastSeen]", error);
+  } catch (error) {
+    console.error("[touchLastSeen]", error);
+  }
+});
+
 export async function requireProfile(): Promise<Profile> {
   const profile = await getCurrentProfile();
 
@@ -50,6 +64,8 @@ export async function requireProfile(): Promise<Profile> {
     }
     redirect("/login");
   }
+
+  await touchLastSeen();
 
   if (profile.status === "inativo") {
     redirect(

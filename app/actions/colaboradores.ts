@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { generateTempPassword } from "@/lib/password";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { logEvento } from "@/lib/eventos";
 import {
   colaboradorFormSchema,
   type ColaboradorFormValues,
@@ -69,6 +70,7 @@ export async function createColaborador(
   }
 
   revalidatePath("/colaboradores");
+  await logEvento("create_colaborador");
   return { success: true, tempPassword };
 }
 
