@@ -24,12 +24,23 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmpresaRenameDialog } from "@/components/empresas/empresa-rename-dialog";
-import { deleteEmpresa, toggleEmpresaStatus } from "@/app/actions/empresas";
+import {
+  deleteEmpresa,
+  enterAsAdmin,
+  toggleEmpresaStatus,
+} from "@/app/actions/empresas";
 import type { Empresa } from "@/types/database";
 
-export function EmpresaRowActions({ empresa }: { empresa: Empresa }) {
+export function EmpresaRowActions({
+  empresa,
+  temAdmin,
+}: {
+  empresa: Empresa;
+  temAdmin: boolean;
+}) {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [enterOpen, setEnterOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -41,6 +52,18 @@ export function EmpresaRowActions({ empresa }: { empresa: Empresa }) {
       } else {
         toast.success("Empresa excluída.");
         setDeleteOpen(false);
+      }
+    });
+  }
+
+  function handleEnter() {
+    startTransition(async () => {
+      // Em caso de sucesso, enterAsAdmin() redireciona (não retorna) —
+      // só chega aqui de volta se deu erro.
+      const result = await enterAsAdmin(empresa.id);
+      if (result && !result.success) {
+        toast.error(result.error);
+        setEnterOpen(false);
       }
     });
   }
@@ -68,6 +91,15 @@ export function EmpresaRowActions({ empresa }: { empresa: Empresa }) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem
+            disabled={!temAdmin}
+            onSelect={(e) => {
+              e.preventDefault();
+              setEnterOpen(true);
+            }}
+          >
+            Entrar como admin
+          </DropdownMenuItem>
+          <DropdownMenuItem
             onSelect={(e) => {
               e.preventDefault();
               setEditOpen(true);
@@ -92,6 +124,31 @@ export function EmpresaRowActions({ empresa }: { empresa: Empresa }) {
       </DropdownMenu>
 
       <EmpresaRenameDialog empresa={empresa} open={editOpen} onOpenChange={setEditOpen} />
+
+      <AlertDialog open={enterOpen} onOpenChange={setEnterOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Entrar como admin de {empresa.nome}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você vai sair da sua sessão master e passar a usar a conta do
+              administrador dessa empresa. Pra voltar a ser master, faça
+              login de novo com seu e-mail.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                handleEnter();
+              }}
+            >
+              Entrar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>

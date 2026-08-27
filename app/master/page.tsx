@@ -106,7 +106,10 @@ export default async function MasterPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <EmpresaRowActions empresa={empresa} />
+                    <EmpresaRowActions
+                      empresa={empresa}
+                      temAdmin={Boolean(info?.adminNome)}
+                    />
                   </TableCell>
                 </TableRow>
               );

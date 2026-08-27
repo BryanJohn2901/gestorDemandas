@@ -28,7 +28,7 @@ import {
   empresaFormSchema,
   type EmpresaFormValues,
 } from "@/lib/validations/empresa";
-import { createEmpresa } from "@/app/actions/empresas";
+import { createEmpresa, enterAsAdmin } from "@/app/actions/empresas";
 
 const emptyValues: EmpresaFormValues = {
   nome: "",
@@ -46,6 +46,8 @@ export function EmpresaFormDialog({
 }) {
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [empresaId, setEmpresaId] = useState<string | null>(null);
+  const [entering, setEntering] = useState(false);
 
   const form = useForm<EmpresaFormValues>({
     resolver: zodResolver(empresaFormSchema),
@@ -57,6 +59,7 @@ export function EmpresaFormDialog({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setTempPassword(null);
       setCopied(false);
+      setEmpresaId(null);
       form.reset(emptyValues);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -73,6 +76,9 @@ export function EmpresaFormDialog({
     if (result.tempPassword) {
       setTempPassword(result.tempPassword);
     }
+    if (result.empresaId) {
+      setEmpresaId(result.empresaId);
+    }
   }
 
   function copyPassword() {
@@ -80,6 +86,18 @@ export function EmpresaFormDialog({
     navigator.clipboard.writeText(tempPassword);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function handleEnter() {
+    if (!empresaId) return;
+    setEntering(true);
+    // Em caso de sucesso, enterAsAdmin() redireciona (não retorna) — só
+    // chega aqui de volta se deu erro.
+    const result = await enterAsAdmin(empresaId);
+    if (result && !result.success) {
+      toast.error(result.error);
+      setEntering(false);
+    }
   }
 
   if (tempPassword) {
@@ -105,8 +123,13 @@ export function EmpresaFormDialog({
               {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             </Button>
           </div>
-          <DialogFooter>
-            <Button onClick={() => onOpenChange(false)}>Concluir</Button>
+          <DialogFooter className="sm:justify-between">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Concluir
+            </Button>
+            <Button onClick={handleEnter} disabled={entering}>
+              {entering ? "Entrando..." : "Entrar como admin agora"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

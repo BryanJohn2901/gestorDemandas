@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireMaster } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -15,7 +16,7 @@ import {
 
 type ActionResult =
   | { success: false; error: string }
-  | { success: true; tempPassword?: string };
+  | { success: true; tempPassword?: string; empresaId?: string };
 
 export async function createEmpresa(
   input: EmpresaFormValues
@@ -74,7 +75,56 @@ export async function createEmpresa(
   }
 
   revalidatePath("/master");
-  return { success: true, tempPassword };
+  return { success: true, tempPassword, empresaId: empresa.id };
+}
+
+// Master clica "Entrar como admin" numa empresa e passa a usar a sessão do
+// admin dela — sem precisar da senha (que nem fica guardada em texto puro
+// depois de gerada). generateLink cria um token de uso único; verifyOtp com
+// esse token, no client normal (cookie-aware), troca a sessão atual —
+// mesmo mecanismo já usado no fluxo de recuperação de senha
+// (app/auth/confirm/route.ts). Master sai da própria sessão ao entrar aqui;
+// pra voltar a ser master, loga de novo com o e-mail de master.
+export async function enterAsAdmin(empresaId: string): Promise<ActionResult> {
+  await requireMaster();
+
+  const admin = createAdminClient();
+  const { data: alvo, error: alvoError } = await admin
+    .from("profiles")
+    .select("email")
+    .eq("empresa_id", empresaId)
+    .eq("role", "admin")
+    .order("created_at")
+    .limit(1)
+    .maybeSingle();
+
+  if (alvoError || !alvo) {
+    console.error("[enterAsAdmin] sem admin", empresaId, alvoError);
+    return { success: false, error: "Essa empresa não tem administrador." };
+  }
+
+  const { data: link, error: linkError } = await admin.auth.admin.generateLink({
+    type: "magiclink",
+    email: alvo.email,
+  });
+
+  if (linkError || !link) {
+    console.error("[enterAsAdmin] generateLink", empresaId, linkError);
+    return { success: false, error: "Não foi possível entrar nessa empresa." };
+  }
+
+  const supabase = await createClient();
+  const { error: verifyError } = await supabase.auth.verifyOtp({
+    type: "magiclink",
+    token_hash: link.properties.hashed_token,
+  });
+
+  if (verifyError) {
+    console.error("[enterAsAdmin] verifyOtp", empresaId, verifyError);
+    return { success: false, error: "Não foi possível entrar nessa empresa." };
+  }
+
+  redirect("/dashboard");
 }
 
 export async function updateEmpresa(
