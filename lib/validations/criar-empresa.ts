@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const cadastroFormSchema = z
+export const criarEmpresaFormSchema = z
   .object({
     empresaNome: z.string().trim().min(2, "Informe o nome da empresa."),
     nome: z.string().trim().min(2, "Informe seu nome completo."),
@@ -13,4 +13,4 @@ export const cadastroFormSchema = z
     path: ["confirmPassword"],
   });
 
-export type CadastroFormValues = z.infer<typeof cadastroFormSchema>;
+export type CriarEmpresaFormValues = z.infer<typeof criarEmpresaFormSchema>;

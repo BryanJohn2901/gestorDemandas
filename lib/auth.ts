@@ -55,6 +55,23 @@ const touchLastSeen = cache(async () => {
   }
 });
 
+// Toleram 3 dias de atraso depois do vencimento antes de bloquear —
+// cobre fim de semana/feriado sem deixar inadimplência se acumular muito.
+const TOLERANCIA_ATRASO_MS = 3 * 24 * 60 * 60_000;
+
+// select só das colunas necessárias, nunca a linha inteira — RLS libera
+// (empresas_select_own), mas não tem motivo pra puxar asaas_customer_id/
+// asaas_subscription_id aqui.
+const getEmpresaAcesso = cache(async (empresaId: string) => {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("empresas")
+    .select("status, subscription_status, current_due_date")
+    .eq("id", empresaId)
+    .maybeSingle();
+  return data;
+});
+
 export async function requireProfile(): Promise<Profile> {
   const profile = await getCurrentProfile();
 
@@ -71,6 +88,25 @@ export async function requireProfile(): Promise<Profile> {
     redirect(
       `/login?error=${encodeURIComponent("Sua conta está inativa. Fale com o administrador.")}`
     );
+  }
+
+  if (profile.role !== "master" && profile.empresa_id) {
+    const empresa = await getEmpresaAcesso(profile.empresa_id);
+
+    if (empresa?.status === "inativo") {
+      redirect(
+        `/login?error=${encodeURIComponent("Sua empresa está inativa. Fale com o administrador.")}`
+      );
+    }
+
+    if (empresa?.subscription_status === "atrasada" && empresa.current_due_date) {
+      const atrasoMs = Date.now() - new Date(empresa.current_due_date).getTime();
+      if (atrasoMs > TOLERANCIA_ATRASO_MS) {
+        redirect(
+          `/login?error=${encodeURIComponent("O pagamento da sua empresa está em atraso. Regularize pra continuar usando.")}`
+        );
+      }
+    }
   }
 
   return profile;

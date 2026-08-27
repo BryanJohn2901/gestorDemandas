@@ -15,12 +15,12 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
-  cadastroFormSchema,
-  type CadastroFormValues,
-} from "@/lib/validations/cadastro";
-import { signUpEmpresa } from "@/app/actions/cadastro";
+  criarEmpresaFormSchema,
+  type CriarEmpresaFormValues,
+} from "@/lib/validations/criar-empresa";
+import { criarEmpresaPosPagamento } from "@/app/actions/criar-empresa";
 
-const emptyValues: CadastroFormValues = {
+const emptyValues: CriarEmpresaFormValues = {
   empresaNome: "",
   nome: "",
   email: "",
@@ -28,16 +28,16 @@ const emptyValues: CadastroFormValues = {
   confirmPassword: "",
 };
 
-export function CadastroForm() {
-  const form = useForm<CadastroFormValues>({
-    resolver: zodResolver(cadastroFormSchema),
+export function CriarEmpresaForm({ token }: { token: string }) {
+  const form = useForm<CriarEmpresaFormValues>({
+    resolver: zodResolver(criarEmpresaFormSchema),
     defaultValues: emptyValues,
   });
 
-  async function onSubmit(values: CadastroFormValues) {
-    const result = await signUpEmpresa(values);
-    // signUpEmpresa redireciona em qualquer caminho de sucesso — só chega
-    // aqui de volta se deu erro (redirect() do Next lança, não retorna).
+  async function onSubmit(values: CriarEmpresaFormValues) {
+    const result = await criarEmpresaPosPagamento(token, values);
+    // Em caso de sucesso, a action redireciona (não retorna) — só chega
+    // aqui de volta se deu erro.
     if (result && !result.success) {
       toast.error(result.error);
     }
@@ -117,7 +117,7 @@ export function CadastroForm() {
         />
 
         <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-          {form.formState.isSubmitting ? "Criando..." : "Criar workspace"}
+          {form.formState.isSubmitting ? "Criando..." : "Criar minha empresa"}
         </Button>
       </form>
     </Form>

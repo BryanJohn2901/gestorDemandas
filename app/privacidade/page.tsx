@@ -32,6 +32,13 @@ export default function PrivacidadePage() {
             empresa/workspace.
           </li>
           <li>
+            <strong>Dados de pagamento:</strong> processados diretamente
+            pelo Asaas (nome, CPF/CNPJ, dados do cartão/Pix/boleto) — nós
+            não armazenamos número de cartão nem dado bancário, só o
+            identificador da assinatura e o histórico de cobranças (valor,
+            vencimento, status).
+          </li>
+          <li>
             <strong>Conteúdo que você insere:</strong> demandas, descrições,
             comentários e imagem de perfil (avatar), quando fornecida.
           </li>
@@ -68,14 +75,13 @@ export default function PrivacidadePage() {
             <strong>Supabase</strong> — banco de dados e autenticação;
           </li>
           <li>
-            <strong>Vercel</strong> — hospedagem da aplicação.
+            <strong>Vercel</strong> — hospedagem da aplicação;
+          </li>
+          <li>
+            <strong>Asaas</strong> — processamento de pagamentos e emissão
+            de cobranças (Pix, boleto, cartão).
           </li>
         </ul>
-        <p>
-          Se um módulo de pagamento for implementado no futuro, um
-          processador de pagamentos será adicionado a esta lista antes de
-          entrar em operação, com atualização desta política.
-        </p>
 
         <h2>5. Isolamento entre empresas</h2>
         <p>

@@ -47,12 +47,15 @@ export default function TermosPage() {
           </li>
         </ul>
 
-        <h2>4. Uso gratuito atual e cobrança futura</h2>
+        <h2>4. Assinatura e pagamento</h2>
         <p>
-          Atualmente o cadastro e uso do TaskMonster não têm custo. Podemos
-          introduzir planos pagos no futuro; nesse caso, workspaces existentes
-          serão avisados com antecedência razoável antes de qualquer cobrança
-          começar a valer.
+          O uso do TaskMonster é pago, no valor de R$ 19,90/mês por
+          workspace, cobrado de forma recorrente através do Asaas
+          (processador de pagamentos). A criação do workspace só acontece
+          depois da confirmação do primeiro pagamento. Se um pagamento
+          ficar em atraso por mais de 3 dias após o vencimento, o acesso ao
+          workspace pode ser bloqueado até a regularização. Cancelamentos
+          podem ser solicitados pelo contato ao final destes termos.
         </p>
 
         <h2>5. Uso aceitável</h2>

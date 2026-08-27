@@ -10,10 +10,43 @@ export type DemandaStatus =
 
 export type DemandaPrioridade = "baixa" | "media" | "alta" | "urgente"
 
+export type SubscriptionStatus = "ativa" | "atrasada"
+
 export type Empresa = {
   id: string
   nome: string
   status: EmpresaStatus
+  created_at: string
+  asaas_customer_id: string | null
+  asaas_subscription_id: string | null
+  subscription_status: SubscriptionStatus | null
+  current_due_date: string | null
+}
+
+export type PreCadastroStatus = "aguardando_pagamento" | "pago" | "usado"
+
+export type PreCadastro = {
+  id: string
+  token: string
+  status: PreCadastroStatus
+  asaas_customer_id: string | null
+  asaas_subscription_id: string | null
+  primeiro_pagamento_id: string | null
+  primeiro_pagamento_valor: number | null
+  primeiro_pagamento_vencimento: string | null
+  created_at: string
+}
+
+export type PagamentoStatus = "pendente" | "pago" | "atrasado" | "estornado"
+
+export type Pagamento = {
+  id: string
+  empresa_id: string
+  asaas_payment_id: string
+  valor: number
+  status: PagamentoStatus
+  vencimento: string
+  pago_em: string | null
   created_at: string
 }
 
@@ -97,6 +130,18 @@ export type Database = {
         Row: EventoUso
         Insert: Partial<EventoUso> & Pick<EventoUso, "empresa_id" | "profile_id" | "acao">
         Update: Partial<EventoUso>
+        Relationships: []
+      }
+      pre_cadastros: {
+        Row: PreCadastro
+        Insert: Partial<PreCadastro>
+        Update: Partial<PreCadastro>
+        Relationships: []
+      }
+      pagamentos: {
+        Row: Pagamento
+        Insert: Partial<Pagamento> & Pick<Pagamento, "empresa_id" | "asaas_payment_id" | "valor" | "status" | "vencimento">
+        Update: Partial<Pagamento>
         Relationships: []
       }
     }

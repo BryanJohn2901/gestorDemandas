@@ -32,8 +32,14 @@ export default async function AtividadePage() {
 
   const { data: empresas } = await supabase
     .from("empresas")
-    .select("id, nome")
+    .select("id, nome, subscription_status")
     .order("nome");
+
+  const planoValor = Number(process.env.ASAAS_PLANO_VALOR ?? "19.90");
+  const assinaturasAtivas = (empresas ?? []).filter(
+    (e) => e.subscription_status === "ativa"
+  ).length;
+  const mrr = assinaturasAtivas * planoValor;
 
   // Master não tem RLS pra ler profiles de outra empresa (de propósito) —
   // usa o client de serviço, só com os campos que essa tela precisa.
@@ -84,11 +90,18 @@ export default async function AtividadePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Receita recorrente (MRR) / Cancelamento</CardTitle>
+          <CardTitle className="text-base">Receita recorrente (MRR)</CardTitle>
           <CardDescription>
-            Disponível quando o módulo de pagamento for implementado.
+            {assinaturasAtivas} assinatura{assinaturasAtivas === 1 ? "" : "s"} ativa
+            {assinaturasAtivas === 1 ? "" : "s"} × R$ {planoValor.toFixed(2).replace(".", ",")}
           </CardDescription>
         </CardHeader>
+        <CardContent>
+          <p className="text-2xl font-semibold">
+            R$ {mrr.toFixed(2).replace(".", ",")}
+            <span className="text-sm font-normal text-muted-foreground">/mês</span>
+          </p>
+        </CardContent>
       </Card>
 
       {(empresas ?? []).map((empresa) => {

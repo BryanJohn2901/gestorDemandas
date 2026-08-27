@@ -6,9 +6,10 @@ const PUBLIC_PATHS = [
   "/login",
   "/forgot-password",
   "/auth/confirm",
-  "/cadastro",
   "/termos",
   "/privacidade",
+  "/criar-empresa",
+  "/api/webhooks/asaas",
 ]
 
 export async function updateSession(request: NextRequest) {
@@ -59,8 +60,11 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl
   const isPublicPath = PUBLIC_PATHS.some((path) => pathname.startsWith(path))
+  // "/" não pode entrar no array acima — startsWith bateria com toda rota
+  // do app (todo pathname começa com "/"), liberando tudo sem login.
+  const isRoot = pathname === "/"
 
-  if (!user && !isPublicPath) {
+  if (!user && !isPublicPath && !isRoot) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
     url.searchParams.set("redirect", pathname)

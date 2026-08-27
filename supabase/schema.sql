@@ -17,7 +17,14 @@ create table public.empresas (
   id uuid primary key default gen_random_uuid(),
   nome text not null,
   status text not null default 'ativo' check (status in ('ativo', 'inativo')),
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- Colunas de cobrança: nulas pra sempre em empresa criada pelo master
+  -- (grátis) — só ganham valor em empresa criada via /criar-empresa
+  -- (paga, self-service, ver app/actions/criar-empresa.ts).
+  asaas_customer_id text,
+  asaas_subscription_id text,
+  subscription_status text check (subscription_status in ('ativa', 'atrasada')),
+  current_due_date date
 );
 
 comment on table public.empresas is 'Empresas-cliente do SaaS. Cada uma tem seu próprio admin e colaboradores.';
@@ -101,6 +108,44 @@ create table public.eventos_uso (
 create index eventos_uso_profile_id_idx on public.eventos_uso (profile_id, created_at);
 create index eventos_uso_empresa_id_idx on public.eventos_uso (empresa_id, created_at);
 
+-- pre_cadastros: identidade de quem começou a pagar mas ainda não tem
+-- conta/empresa. token vai no externalReference do Asaas Checkout e na
+-- successUrl — é o que correlaciona o browser voltando do checkout
+-- hospedado com "qual pagamento é esse" (ver app/actions/assinatura.ts,
+-- app/api/webhooks/asaas/route.ts, app/actions/criar-empresa.ts).
+create table public.pre_cadastros (
+  id uuid primary key default gen_random_uuid(),
+  token uuid not null default gen_random_uuid() unique,
+  status text not null default 'aguardando_pagamento'
+    check (status in ('aguardando_pagamento', 'pago', 'usado')),
+  asaas_customer_id text,
+  asaas_subscription_id text,
+  -- capturado no webhook do primeiro pagamento, pra criar a 1ª linha de
+  -- pagamentos de forma determinística (não depender de reentrega de
+  -- webhook pra não perder a primeira fatura do histórico).
+  primeiro_pagamento_id text,
+  primeiro_pagamento_valor numeric(10,2),
+  primeiro_pagamento_vencimento date,
+  created_at timestamptz not null default now()
+);
+
+comment on table public.pre_cadastros is 'Identidade de quem começou a pagar mas ainda não criou a empresa/conta. token vai no externalReference do Asaas Checkout e na successUrl.';
+
+-- pagamentos: histórico de cobranças por empresa ("contratos" no painel
+-- do master).
+create table public.pagamentos (
+  id uuid primary key default gen_random_uuid(),
+  empresa_id uuid not null references public.empresas (id) on delete cascade,
+  asaas_payment_id text not null unique,
+  valor numeric(10,2) not null,
+  status text not null check (status in ('pendente', 'pago', 'atrasado', 'estornado')),
+  vencimento date not null,
+  pago_em timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index pagamentos_empresa_id_idx on public.pagamentos (empresa_id);
+
 -- ============================================================================
 -- 2. Triggers utilitários
 -- ============================================================================
@@ -170,6 +215,12 @@ alter table public.profiles enable row level security;
 alter table public.demandas enable row level security;
 alter table public.comentarios enable row level security;
 alter table public.eventos_uso enable row level security;
+alter table public.pre_cadastros enable row level security;
+-- Zero policies em pre_cadastros de propósito: não existe acesso legítimo
+-- via sessão de browser pra essa tabela, tudo passa por createAdminClient()
+-- (server-only). RLS habilitada sem policy = default-deny total pra
+-- anon/authenticated, service_role ignora RLS de qualquer forma.
+alter table public.pagamentos enable row level security;
 
 -- Helper: verifica se o usuário autenticado é admin, sem recursão de RLS
 -- (security definer roda com o dono da função, que ignora as policies).
@@ -285,6 +336,14 @@ create policy "empresas_delete_master"
   on public.empresas for delete
   to authenticated
   using ((select public.is_master()));
+
+-- Empresa lê a própria linha (precisa pra checar subscription_status/
+-- current_due_date/status em requireProfile()). Aditiva à policy de
+-- master acima (RLS OR's policies permissivas do mesmo comando).
+create policy "empresas_select_own"
+  on public.empresas for select
+  to authenticated
+  using (id = (select public.current_empresa_id()));
 
 -- --- profiles ---------------------------------------------------------------
 --
@@ -432,6 +491,15 @@ create policy "comentarios_insert"
 
 create policy "eventos_uso_select_master"
   on public.eventos_uso for select
+  to authenticated
+  using ((select public.is_master()));
+
+-- --- pagamentos ------------------------------------------------------------
+--
+-- Só master lê (histórico de cobrança = "contratos" no painel dele).
+
+create policy "pagamentos_select_master"
+  on public.pagamentos for select
   to authenticated
   using ((select public.is_master()));
 
