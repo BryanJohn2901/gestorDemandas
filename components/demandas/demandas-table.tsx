@@ -31,7 +31,7 @@ import { STATUS_CONFIG, STATUS_ORDER, PRIORIDADE_CONFIG, isAtrasada } from "@/li
 import { cn } from "@/lib/utils";
 import type { DemandaComResponsavel, DemandaPrioridade, Profile } from "@/types/database";
 
-type SortColumn = "titulo" | "responsavel" | "cliente_projeto" | "status" | "prioridade" | "prazo";
+type SortColumn = "titulo" | "responsavel" | "projeto" | "status" | "prioridade" | "prazo";
 type SortDirection = "asc" | "desc";
 
 function initials(nome: string) {
@@ -63,9 +63,11 @@ function SortIcon({
 export function DemandasTable({
   demandas,
   colaboradores,
+  isAdmin,
 }: {
   demandas: DemandaComResponsavel[];
   colaboradores: Pick<Profile, "id" | "nome" | "status">[];
+  isAdmin: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
@@ -76,13 +78,15 @@ export function DemandasTable({
   const [sortColumn, setSortColumn] = useState<SortColumn>("prazo");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
-  const clientes = useMemo(
-    () =>
-      Array.from(
-        new Set(demandas.map((d) => d.cliente_projeto).filter((c): c is string => Boolean(c)))
-      ).sort(),
-    [demandas]
-  );
+  const clientes = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const d of demandas) {
+      if (d.projeto?.cliente) byId.set(d.projeto.cliente.id, d.projeto.cliente.nome);
+    }
+    return Array.from(byId, ([id, nome]) => ({ id, nome })).sort((a, b) =>
+      a.nome.localeCompare(b.nome)
+    );
+  }, [demandas]);
 
   const responsaveisComDemanda = useMemo(() => {
     const ids = new Set(demandas.map((d) => d.responsavel_id).filter(Boolean));
@@ -106,7 +110,7 @@ export function DemandasTable({
       if (statusFilter !== "todos" && d.status !== statusFilter) return false;
       if (prioridadeFilter !== "todas" && d.prioridade !== prioridadeFilter) return false;
       if (responsavelFilter !== "todos" && d.responsavel_id !== responsavelFilter) return false;
-      if (clienteFilter !== "todos" && d.cliente_projeto !== clienteFilter) return false;
+      if (clienteFilter !== "todos" && d.projeto?.cliente?.id !== clienteFilter) return false;
       if (atrasadasOnly && !isAtrasada(d.prazo, d.status)) return false;
       return true;
     });
@@ -120,9 +124,12 @@ export function DemandasTable({
         case "responsavel":
           cmp = (a.responsavel?.nome ?? "").localeCompare(b.responsavel?.nome ?? "");
           break;
-        case "cliente_projeto":
-          cmp = (a.cliente_projeto ?? "").localeCompare(b.cliente_projeto ?? "");
+        case "projeto": {
+          const aLabel = a.projeto ? `${a.projeto.cliente?.nome ?? ""} ${a.projeto.nome}` : "";
+          const bLabel = b.projeto ? `${b.projeto.cliente?.nome ?? ""} ${b.projeto.nome}` : "";
+          cmp = aLabel.localeCompare(bLabel);
           break;
+        }
         case "status":
           cmp = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
           break;
@@ -198,16 +205,16 @@ export function DemandasTable({
           </Select>
         )}
 
-        {clientes.length > 0 && (
+        {isAdmin && clientes.length > 0 && (
           <Select value={clienteFilter} onValueChange={setClienteFilter}>
             <SelectTrigger className="w-44">
-              <SelectValue placeholder="Cliente/Projeto" />
+              <SelectValue placeholder="Cliente" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os clientes</SelectItem>
               {clientes.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
+                <SelectItem key={c.id} value={c.id}>
+                  {c.nome}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -249,9 +256,9 @@ export function DemandasTable({
               <TableHead>
                 <button
                   className="flex items-center gap-1 hover:text-foreground"
-                  onClick={() => toggleSort("cliente_projeto")}
+                  onClick={() => toggleSort("projeto")}
                 >
-                  Cliente/Projeto <SortIcon column="cliente_projeto" sortColumn={sortColumn} sortDirection={sortDirection} />
+                  Cliente/Projeto <SortIcon column="projeto" sortColumn={sortColumn} sortDirection={sortDirection} />
                 </button>
               </TableHead>
               <TableHead>
@@ -319,7 +326,11 @@ export function DemandasTable({
                     )}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {demanda.cliente_projeto || "—"}
+                    {demanda.projeto
+                      ? demanda.projeto.cliente?.nome
+                        ? `${demanda.projeto.cliente.nome} · ${demanda.projeto.nome}`
+                        : demanda.projeto.nome
+                      : "—"}
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={demanda.status} />

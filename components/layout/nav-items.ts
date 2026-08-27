@@ -4,6 +4,7 @@ import {
   KanbanSquare,
   UserCheck,
   Users,
+  Building2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -20,4 +21,5 @@ export const navItems: NavItem[] = [
   { title: "Lista", href: "/demandas", icon: ListTodo },
   { title: "Board", href: "/demandas/board", icon: KanbanSquare },
   { title: "Colaboradores", href: "/colaboradores", icon: Users, adminOnly: true },
+  { title: "Clientes", href: "/clientes", icon: Building2, adminOnly: true },
 ];

@@ -71,6 +71,25 @@ export type EventoUso = {
   created_at: string
 }
 
+export type Cliente = {
+  id: string
+  empresa_id: string
+  nome: string
+  created_at: string
+}
+
+export type Projeto = {
+  id: string
+  empresa_id: string
+  cliente_id: string
+  nome: string
+  created_at: string
+}
+
+export type ProjetoComCliente = Projeto & {
+  cliente: Pick<Cliente, "id" | "nome"> | null
+}
+
 export type Demanda = {
   id: string
   empresa_id: string
@@ -80,7 +99,7 @@ export type Demanda = {
   status: DemandaStatus
   prioridade: DemandaPrioridade
   prazo: string | null
-  cliente_projeto: string | null
+  projeto_id: string | null
   link_entrega: string | null
   criado_por: string | null
   created_at: string
@@ -89,6 +108,7 @@ export type Demanda = {
 
 export type DemandaComResponsavel = Demanda & {
   responsavel: Pick<Profile, "id" | "nome" | "avatar_url"> | null
+  projeto: ProjetoComCliente | null
 }
 
 export type Comentario = {
@@ -158,6 +178,26 @@ export type Database = {
         Insert: Partial<RegistroTempo> & Pick<RegistroTempo, "demanda_id" | "profile_id">
         Update: Partial<RegistroTempo>
         Relationships: []
+      }
+      clientes: {
+        Row: Cliente
+        Insert: Partial<Cliente> & Pick<Cliente, "empresa_id" | "nome">
+        Update: Partial<Cliente>
+        Relationships: []
+      }
+      projetos: {
+        Row: Projeto
+        Insert: Partial<Projeto> & Pick<Projeto, "empresa_id" | "cliente_id" | "nome">
+        Update: Partial<Projeto>
+        Relationships: [
+          {
+            foreignKeyName: "projetos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: Record<string, never>

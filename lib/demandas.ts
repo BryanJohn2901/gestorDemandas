@@ -4,6 +4,7 @@ import type {
   DemandaPrioridade,
   DemandaStatus,
   Profile,
+  ProjetoComCliente,
 } from "@/types/database";
 
 export const STATUS_CONFIG: Record<
@@ -81,11 +82,14 @@ export function formatDuracao(totalSegundos: number): string {
 
 export function withResponsavel(
   demandas: Demanda[],
-  profiles: Pick<Profile, "id" | "nome" | "avatar_url">[]
+  profiles: Pick<Profile, "id" | "nome" | "avatar_url">[],
+  projetos: ProjetoComCliente[] = []
 ): DemandaComResponsavel[] {
-  const byId = new Map(profiles.map((p) => [p.id, p]));
+  const profileById = new Map(profiles.map((p) => [p.id, p]));
+  const projetoById = new Map(projetos.map((p) => [p.id, p]));
   return demandas.map((d) => ({
     ...d,
-    responsavel: d.responsavel_id ? (byId.get(d.responsavel_id) ?? null) : null,
+    responsavel: d.responsavel_id ? (profileById.get(d.responsavel_id) ?? null) : null,
+    projeto: d.projeto_id ? (projetoById.get(d.projeto_id) ?? null) : null,
   }));
 }

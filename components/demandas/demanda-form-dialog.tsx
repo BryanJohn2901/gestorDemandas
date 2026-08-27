@@ -44,7 +44,12 @@ import {
   type DemandaFormValues,
 } from "@/lib/validations/demanda";
 import { createDemanda, updateDemanda } from "@/app/actions/demandas";
-import type { Demanda, DemandaPrioridade, Profile } from "@/types/database";
+import type {
+  Demanda,
+  DemandaPrioridade,
+  Profile,
+  ProjetoComCliente,
+} from "@/types/database";
 
 type DemandaFormDialogProps = {
   open: boolean;
@@ -52,6 +57,7 @@ type DemandaFormDialogProps = {
   mode: "create" | "edit";
   demanda?: Demanda;
   colaboradores: Pick<Profile, "id" | "nome" | "status">[];
+  projetos: ProjetoComCliente[];
   onSaved?: (id: string) => void;
 };
 
@@ -62,7 +68,7 @@ const emptyValues: DemandaFormValues = {
   status: "a_fazer",
   prioridade: "media",
   prazo: "",
-  cliente_projeto: "",
+  projeto_id: "",
   link_entrega: "",
 };
 
@@ -72,6 +78,7 @@ export function DemandaFormDialog({
   mode,
   demanda,
   colaboradores,
+  projetos,
   onSaved,
 }: DemandaFormDialogProps) {
   const router = useRouter();
@@ -87,7 +94,7 @@ export function DemandaFormDialog({
           status: demanda.status,
           prioridade: demanda.prioridade,
           prazo: demanda.prazo ?? "",
-          cliente_projeto: demanda.cliente_projeto ?? "",
+          projeto_id: demanda.projeto_id ?? "",
           link_entrega: demanda.link_entrega ?? "",
         }
       : emptyValues,
@@ -104,7 +111,8 @@ export function DemandaFormDialog({
               status: demanda.status,
               prioridade: demanda.prioridade,
               prazo: demanda.prazo ?? "",
-              cliente_projeto: demanda.cliente_projeto ?? "",
+              projeto_id: demanda.projeto_id ?? "",
+              link_entrega: demanda.link_entrega ?? "",
             }
           : emptyValues
       );
@@ -211,13 +219,33 @@ export function DemandaFormDialog({
 
               <FormField
                 control={form.control}
-                name="cliente_projeto"
+                name="projeto_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Cliente/Projeto</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ex: Cliente ABC" {...field} />
-                    </FormControl>
+                    <FormLabel>Projeto</FormLabel>
+                    <Select
+                      value={field.value || "nenhum"}
+                      onValueChange={(v) => field.onChange(v === "nenhum" ? "" : v)}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="nenhum">Nenhum</SelectItem>
+                        {projetos.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.cliente?.nome ? `${p.cliente.nome} · ${p.nome}` : p.nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {projetos.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Nenhum projeto cadastrado ainda — cadastre em Clientes.
+                      </p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}

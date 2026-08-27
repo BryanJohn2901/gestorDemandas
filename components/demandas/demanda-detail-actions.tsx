@@ -18,14 +18,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import { DemandaFormDialog } from "@/components/demandas/demanda-form-dialog";
 import { deleteDemanda } from "@/app/actions/demandas";
-import type { Demanda, Profile } from "@/types/database";
+import type { Demanda, Profile, ProjetoComCliente } from "@/types/database";
 
 export function DemandaDetailActions({
   demanda,
   colaboradores,
+  projetos,
 }: {
   demanda: Demanda;
   colaboradores: Pick<Profile, "id" | "nome" | "status">[];
+  projetos: ProjetoComCliente[];
 }) {
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
@@ -61,6 +63,7 @@ export function DemandaDetailActions({
         open={editOpen}
         onOpenChange={setEditOpen}
         colaboradores={colaboradores}
+        projetos={projetos}
       />
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>

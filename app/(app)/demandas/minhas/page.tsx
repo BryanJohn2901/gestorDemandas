@@ -8,18 +8,25 @@ import { PrioridadeBadge } from "@/components/demandas/prioridade-badge";
 import { DemandaStatusSelect } from "@/components/demandas/demanda-status-select";
 import { STATUS_CONFIG, STATUS_ORDER, isAtrasada } from "@/lib/demandas";
 import { cn } from "@/lib/utils";
-import type { Demanda } from "@/types/database";
+import type { Demanda, ProjetoComCliente } from "@/types/database";
 
 
 export default async function MinhasTarefasPage() {
   const profile = await requireProfile();
   const supabase = await createClient();
 
-  const { data: demandas } = await supabase
-    .from("demandas")
-    .select("*")
-    .eq("responsavel_id", profile.id)
-    .order("prazo", { ascending: true, nullsFirst: false });
+  const [{ data: demandas }, { data: projetos }] = await Promise.all([
+    supabase
+      .from("demandas")
+      .select("*")
+      .eq("responsavel_id", profile.id)
+      .order("prazo", { ascending: true, nullsFirst: false }),
+    supabase.from("projetos").select("*, cliente:clientes(id, nome)").order("nome"),
+  ]);
+
+  const projetoById = new Map(
+    ((projetos ?? []) as ProjetoComCliente[]).map((p) => [p.id, p])
+  );
 
   const grupos = STATUS_ORDER.map((status) => ({
     status,
@@ -51,6 +58,7 @@ export default async function MinhasTarefasPage() {
           <div className="rounded-lg border bg-background divide-y">
             {grupo.demandas.map((demanda: Demanda) => {
               const atrasada = isAtrasada(demanda.prazo, demanda.status);
+              const projeto = demanda.projeto_id ? projetoById.get(demanda.projeto_id) : null;
               return (
                 <div
                   key={demanda.id}
@@ -65,9 +73,9 @@ export default async function MinhasTarefasPage() {
                     </Link>
                     <div className="flex flex-wrap items-center gap-2">
                       <PrioridadeBadge prioridade={demanda.prioridade} />
-                      {demanda.cliente_projeto && (
+                      {projeto && (
                         <span className="text-xs text-muted-foreground">
-                          {demanda.cliente_projeto}
+                          {projeto.cliente?.nome ? `${projeto.cliente.nome} · ${projeto.nome}` : projeto.nome}
                         </span>
                       )}
                       {demanda.prazo && (

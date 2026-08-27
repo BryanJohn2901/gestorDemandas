@@ -55,6 +55,33 @@ comment on table public.profiles is 'Perfil dos usuários (master, admin ou cola
 
 create index profiles_empresa_id_idx on public.profiles (empresa_id);
 
+-- clientes: clientes de cada empresa (tenant) — dono dos projetos, pra
+-- controle e filtro de demandas.
+create table public.clientes (
+  id uuid primary key default gen_random_uuid(),
+  empresa_id uuid not null references public.empresas (id) on delete cascade,
+  nome text not null,
+  created_at timestamptz not null default now()
+);
+
+comment on table public.clientes is 'Clientes de cada empresa (tenant) — dono dos projetos, pra controle e filtro de demandas.';
+
+create index clientes_empresa_id_idx on public.clientes (empresa_id);
+
+-- projetos: projetos de um cliente — demanda se liga a um projeto (opcional).
+create table public.projetos (
+  id uuid primary key default gen_random_uuid(),
+  empresa_id uuid not null references public.empresas (id) on delete cascade,
+  cliente_id uuid not null references public.clientes (id) on delete cascade,
+  nome text not null,
+  created_at timestamptz not null default now()
+);
+
+comment on table public.projetos is 'Projetos de um cliente — demandas se ligam a um projeto (opcional).';
+
+create index projetos_empresa_id_idx on public.projetos (empresa_id);
+create index projetos_cliente_id_idx on public.projetos (cliente_id);
+
 -- demandas: tarefas/demandas atribuídas aos colaboradores.
 create table public.demandas (
   id uuid primary key default gen_random_uuid(),
@@ -67,7 +94,7 @@ create table public.demandas (
   prioridade text not null default 'media'
     check (prioridade in ('baixa', 'media', 'alta', 'urgente')),
   prazo date,
-  cliente_projeto text,
+  projeto_id uuid references public.projetos (id) on delete set null,
   link_entrega text,
   criado_por uuid references public.profiles (id) on delete set null,
   created_at timestamptz not null default now(),
@@ -81,6 +108,7 @@ create index demandas_responsavel_id_idx on public.demandas (responsavel_id);
 create index demandas_status_idx on public.demandas (status);
 create index demandas_prazo_idx on public.demandas (prazo);
 create index demandas_criado_por_idx on public.demandas (criado_por);
+create index demandas_projeto_id_idx on public.demandas (projeto_id);
 
 -- comentarios: histórico de comentários por demanda (fase 2 da UI).
 create table public.comentarios (
@@ -232,6 +260,8 @@ create trigger set_demandas_updated_at
 
 alter table public.empresas enable row level security;
 alter table public.profiles enable row level security;
+alter table public.clientes enable row level security;
+alter table public.projetos enable row level security;
 alter table public.demandas enable row level security;
 alter table public.comentarios enable row level security;
 alter table public.eventos_uso enable row level security;
@@ -398,6 +428,61 @@ create policy "profiles_delete_admin"
   to authenticated
   using ((select public.is_admin()) and empresa_id = (select public.current_empresa_id()));
 
+-- --- clientes -----------------------------------------------------------
+
+create policy "clientes_select" on public.clientes
+  for select to authenticated
+  using (empresa_id = (select public.current_empresa_id()));
+
+create policy "clientes_insert_admin" on public.clientes
+  for insert to authenticated
+  with check ((select public.is_admin()) and empresa_id = (select public.current_empresa_id()));
+
+create policy "clientes_update_admin" on public.clientes
+  for update to authenticated
+  using ((select public.is_admin()) and empresa_id = (select public.current_empresa_id()))
+  with check ((select public.is_admin()) and empresa_id = (select public.current_empresa_id()));
+
+create policy "clientes_delete_admin" on public.clientes
+  for delete to authenticated
+  using ((select public.is_admin()) and empresa_id = (select public.current_empresa_id()));
+
+-- --- projetos -----------------------------------------------------------
+
+create policy "projetos_select" on public.projetos
+  for select to authenticated
+  using (empresa_id = (select public.current_empresa_id()));
+
+-- O exists() garante que o cliente_id escolhido pertence à própria empresa
+-- do admin — sem isso, um insert/update direto (fora da UI) poderia ligar
+-- um projeto a um cliente de outra empresa, mesmo com empresa_id certo.
+create policy "projetos_insert_admin" on public.projetos
+  for insert to authenticated
+  with check (
+    (select public.is_admin())
+    and empresa_id = (select public.current_empresa_id())
+    and exists (
+      select 1 from public.clientes c
+      where c.id = projetos.cliente_id and c.empresa_id = (select public.current_empresa_id())
+    )
+  );
+
+create policy "projetos_update_admin" on public.projetos
+  for update to authenticated
+  using ((select public.is_admin()) and empresa_id = (select public.current_empresa_id()))
+  with check (
+    (select public.is_admin())
+    and empresa_id = (select public.current_empresa_id())
+    and exists (
+      select 1 from public.clientes c
+      where c.id = projetos.cliente_id and c.empresa_id = (select public.current_empresa_id())
+    )
+  );
+
+create policy "projetos_delete_admin" on public.projetos
+  for delete to authenticated
+  using ((select public.is_admin()) and empresa_id = (select public.current_empresa_id()));
+
 -- --- demandas ----------------------------------------------------------------
 
 -- Admin vê todas as demandas da própria empresa; colaborador vê apenas as
@@ -410,11 +495,22 @@ create policy "demandas_select"
     and ((select public.is_admin()) or responsavel_id = (select auth.uid()))
   );
 
--- Apenas admin cria demandas, sempre na própria empresa.
+-- Apenas admin cria demandas, sempre na própria empresa. O exists() garante
+-- que o projeto escolhido (se houver) pertence à própria empresa.
 create policy "demandas_insert_admin"
   on public.demandas for insert
   to authenticated
-  with check ((select public.is_admin()) and empresa_id = (select public.current_empresa_id()));
+  with check (
+    (select public.is_admin())
+    and empresa_id = (select public.current_empresa_id())
+    and (
+      projeto_id is null
+      or exists (
+        select 1 from public.projetos p
+        where p.id = demandas.projeto_id and p.empresa_id = (select public.current_empresa_id())
+      )
+    )
+  );
 
 -- Admin atualiza qualquer demanda da própria empresa; colaborador só
 -- atualiza as suas (ex: mudar status ao mover no Kanban).
@@ -428,6 +524,13 @@ create policy "demandas_update"
   with check (
     empresa_id = (select public.current_empresa_id())
     and ((select public.is_admin()) or responsavel_id = (select auth.uid()))
+    and (
+      projeto_id is null
+      or exists (
+        select 1 from public.projetos p
+        where p.id = demandas.projeto_id and p.empresa_id = (select public.current_empresa_id())
+      )
+    )
   );
 
 -- RLS acima só decide QUAIS LINHAS um colaborador pode tocar — não QUAIS
@@ -451,7 +554,8 @@ begin
       or new.responsavel_id is distinct from old.responsavel_id
       or new.prioridade is distinct from old.prioridade
       or new.prazo is distinct from old.prazo
-      or new.cliente_projeto is distinct from old.cliente_projeto
+      or new.projeto_id is distinct from old.projeto_id
+      or new.link_entrega is distinct from old.link_entrega
       or new.criado_por is distinct from old.criado_por
     then
       raise exception 'Apenas administradores podem editar esses campos. Colaboradores só podem atualizar o status.';

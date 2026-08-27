@@ -7,7 +7,7 @@ export const demandaFormSchema = z.object({
   status: z.enum(["a_fazer", "em_andamento", "em_revisao", "concluido"]),
   prioridade: z.enum(["baixa", "media", "alta", "urgente"]),
   prazo: z.string().optional().or(z.literal("")),
-  cliente_projeto: z.string().trim().optional().or(z.literal("")),
+  projeto_id: z.string().optional().or(z.literal("")),
   link_entrega: z
     .string()
     .trim()

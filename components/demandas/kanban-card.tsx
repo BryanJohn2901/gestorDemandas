@@ -33,8 +33,12 @@ function CardContent({ demanda }: { demanda: DemandaComResponsavel }) {
         {demanda.titulo}
       </Link>
 
-      {demanda.cliente_projeto && (
-        <div className="text-xs text-muted-foreground">{demanda.cliente_projeto}</div>
+      {demanda.projeto && (
+        <div className="text-xs text-muted-foreground">
+          {demanda.projeto.cliente?.nome
+            ? `${demanda.projeto.cliente.nome} · ${demanda.projeto.nome}`
+            : demanda.projeto.nome}
+        </div>
       )}
 
       <div className="flex items-center justify-between">

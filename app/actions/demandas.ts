@@ -30,7 +30,7 @@ export async function createDemanda(
     status,
     prioridade,
     prazo,
-    cliente_projeto,
+    projeto_id,
     link_entrega,
   } = parsed.data;
 
@@ -45,7 +45,7 @@ export async function createDemanda(
       status,
       prioridade,
       prazo: prazo || null,
-      cliente_projeto: cliente_projeto || null,
+      projeto_id: projeto_id || null,
       link_entrega: link_entrega || null,
       criado_por: admin.id,
     })
@@ -89,7 +89,7 @@ export async function updateDemanda(
     status,
     prioridade,
     prazo,
-    cliente_projeto,
+    projeto_id,
     link_entrega,
   } = parsed.data;
 
@@ -102,7 +102,7 @@ export async function updateDemanda(
       status,
       prioridade,
       prazo: prazo || null,
-      cliente_projeto: cliente_projeto || null,
+      projeto_id: projeto_id || null,
       link_entrega: link_entrega || null,
     })
     .eq("id", id);

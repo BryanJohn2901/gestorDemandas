@@ -16,6 +16,7 @@ import { DemandaStatusSelect } from "@/components/demandas/demanda-status-select
 import { DemandaTimer } from "@/components/demandas/demanda-timer";
 import { isAtrasada } from "@/lib/demandas";
 import { cn } from "@/lib/utils";
+import type { ProjetoComCliente } from "@/types/database";
 
 
 function initials(nome: string) {
@@ -59,6 +60,14 @@ export default async function DemandaDetailPage({ params }: DemandaDetailPagePro
     .select("*")
     .order("nome");
 
+  const { data: projetos } = await supabase
+    .from("projetos")
+    .select("*, cliente:clientes(id, nome)")
+    .order("nome");
+
+  const todosProjetos = (projetos ?? []) as ProjetoComCliente[];
+  const projeto = todosProjetos.find((p) => p.id === demanda.projeto_id) ?? null;
+
   const responsavel = relatedProfiles?.find((p) => p.id === demanda.responsavel_id);
   const criador = relatedProfiles?.find((p) => p.id === demanda.criado_por);
   const atrasada = isAtrasada(demanda.prazo, demanda.status);
@@ -99,16 +108,20 @@ export default async function DemandaDetailPage({ params }: DemandaDetailPagePro
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={demanda.status} />
             <PrioridadeBadge prioridade={demanda.prioridade} />
-            {demanda.cliente_projeto && (
+            {projeto && (
               <span className="text-sm text-muted-foreground">
-                {demanda.cliente_projeto}
+                {projeto.cliente?.nome ? `${projeto.cliente.nome} · ${projeto.nome}` : projeto.nome}
               </span>
             )}
           </div>
         </div>
 
         {profile.role === "admin" && (
-          <DemandaDetailActions demanda={demanda} colaboradores={colaboradores ?? []} />
+          <DemandaDetailActions
+            demanda={demanda}
+            colaboradores={colaboradores ?? []}
+            projetos={todosProjetos}
+          />
         )}
       </div>
 
