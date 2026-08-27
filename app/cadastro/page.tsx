@@ -11,9 +11,7 @@ import {
 export default function CadastroPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-8 bg-background p-4">
-      {/* Nexo é uma empresa-cliente, não a marca da plataforma — placeholder
-          até definir o nome de verdade do SaaS. */}
-      <span className="text-lg font-semibold tracking-tight">Gestor de Demandas</span>
+      <span className="text-lg font-semibold tracking-tight">TaskMonster</span>
 
       <Card className="w-full max-w-sm">
         <CardHeader>
@@ -24,6 +22,18 @@ export default function CadastroPage() {
         </CardHeader>
         <CardContent>
           <CadastroForm />
+
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            Ao criar um workspace, você concorda com os{" "}
+            <Link href="/termos" className="underline underline-offset-4 hover:text-foreground">
+              Termos de Uso
+            </Link>{" "}
+            e a{" "}
+            <Link href="/privacidade" className="underline underline-offset-4 hover:text-foreground">
+              Política de Privacidade
+            </Link>
+            .
+          </p>
 
           <Link
             href="/login"

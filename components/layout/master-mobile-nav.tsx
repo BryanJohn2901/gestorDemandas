@@ -29,7 +29,7 @@ export function MasterMobileNav() {
       >
         <SheetHeader className="flex-row items-center gap-2 space-y-0 border-b px-4 py-3">
           <SheetTitle className="text-sm font-semibold tracking-tight">
-            Painel Master
+            TaskMonster
           </SheetTitle>
         </SheetHeader>
         <MasterNavLinks onNavigate={() => setOpen(false)} />

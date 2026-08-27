@@ -2,7 +2,14 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 import { LOGIN_DISABLED } from "@/lib/dev-flags"
 
-const PUBLIC_PATHS = ["/login", "/forgot-password", "/auth/confirm", "/cadastro"]
+const PUBLIC_PATHS = [
+  "/login",
+  "/forgot-password",
+  "/auth/confirm",
+  "/cadastro",
+  "/termos",
+  "/privacidade",
+]
 
 export async function updateSession(request: NextRequest) {
   if (LOGIN_DISABLED) {

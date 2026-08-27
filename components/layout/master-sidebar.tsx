@@ -6,7 +6,7 @@ export function MasterSidebar() {
       <div className="flex h-14 items-center border-b border-sidebar-border px-4">
         {/* Nexo é uma empresa-cliente da plataforma, não a marca dela —
             placeholder até definir o nome de verdade do SaaS. */}
-        <span className="text-sm font-semibold tracking-tight">Painel Master</span>
+        <span className="text-sm font-semibold tracking-tight">TaskMonster</span>
       </div>
       <MasterNavLinks />
     </aside>
