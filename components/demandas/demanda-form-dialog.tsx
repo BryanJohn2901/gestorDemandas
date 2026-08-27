@@ -63,6 +63,7 @@ const emptyValues: DemandaFormValues = {
   prioridade: "media",
   prazo: "",
   cliente_projeto: "",
+  link_entrega: "",
 };
 
 export function DemandaFormDialog({
@@ -87,6 +88,7 @@ export function DemandaFormDialog({
           prioridade: demanda.prioridade,
           prazo: demanda.prazo ?? "",
           cliente_projeto: demanda.cliente_projeto ?? "",
+          link_entrega: demanda.link_entrega ?? "",
         }
       : emptyValues,
   });
@@ -221,6 +223,23 @@ export function DemandaFormDialog({
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="link_entrega"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Link de entrega</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Ex: https://drive.google.com/..."
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className="grid grid-cols-3 gap-4">
               <FormField

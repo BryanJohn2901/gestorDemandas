@@ -81,6 +81,7 @@ export type Demanda = {
   prioridade: DemandaPrioridade
   prazo: string | null
   cliente_projeto: string | null
+  link_entrega: string | null
   criado_por: string | null
   created_at: string
   updated_at: string

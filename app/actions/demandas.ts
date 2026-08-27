@@ -23,8 +23,16 @@ export async function createDemanda(
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
-  const { titulo, descricao, responsavel_id, status, prioridade, prazo, cliente_projeto } =
-    parsed.data;
+  const {
+    titulo,
+    descricao,
+    responsavel_id,
+    status,
+    prioridade,
+    prazo,
+    cliente_projeto,
+    link_entrega,
+  } = parsed.data;
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -38,6 +46,7 @@ export async function createDemanda(
       prioridade,
       prazo: prazo || null,
       cliente_projeto: cliente_projeto || null,
+      link_entrega: link_entrega || null,
       criado_por: admin.id,
     })
     .select("id")
@@ -73,8 +82,16 @@ export async function updateDemanda(
 
   const supabase = await createClient();
 
-  const { titulo, descricao, responsavel_id, status, prioridade, prazo, cliente_projeto } =
-    parsed.data;
+  const {
+    titulo,
+    descricao,
+    responsavel_id,
+    status,
+    prioridade,
+    prazo,
+    cliente_projeto,
+    link_entrega,
+  } = parsed.data;
 
   const { error } = await supabase
     .from("demandas")
@@ -86,6 +103,7 @@ export async function updateDemanda(
       prioridade,
       prazo: prazo || null,
       cliente_projeto: cliente_projeto || null,
+      link_entrega: link_entrega || null,
     })
     .eq("id", id);
 

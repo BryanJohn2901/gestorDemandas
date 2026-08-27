@@ -68,6 +68,7 @@ create table public.demandas (
     check (prioridade in ('baixa', 'media', 'alta', 'urgente')),
   prazo date,
   cliente_projeto text,
+  link_entrega text,
   criado_por uuid references public.profiles (id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

@@ -181,6 +181,24 @@ export default async function DemandaDetailPage({ params }: DemandaDetailPagePro
               })}
             </div>
           </div>
+
+          <div>
+            <div className="text-xs font-medium text-muted-foreground">Link de entrega</div>
+            <div className="mt-1 text-sm">
+              {demanda.link_entrega ? (
+                <a
+                  href={demanda.link_entrega}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline underline-offset-4 break-all"
+                >
+                  {demanda.link_entrega}
+                </a>
+              ) : (
+                "—"
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
