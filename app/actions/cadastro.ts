@@ -55,7 +55,10 @@ export async function signUpEmpresa(
     email,
     password,
     email_confirm: true,
-    user_metadata: { nome, cargo: "Admin", role: "admin" },
+    // empresa_id precisa ir junto aqui, não num update depois — o trigger
+    // handle_new_user() insere o profile na hora do createUser, e a
+    // constraint profiles_empresa_id_by_role checa nesse exato insert.
+    user_metadata: { nome, cargo: "Admin", role: "admin", empresa_id: empresa.id },
   });
 
   if (error || !data.user) {
@@ -64,16 +67,6 @@ export async function signUpEmpresa(
     // sem erro) e a empresa órfã fica pra sempre.
     await admin.from("empresas").delete().eq("id", empresa.id);
     console.error("[signUpEmpresa] user", error);
-    return { success: false, error: ERRO_GENERICO };
-  }
-
-  const { error: linkError } = await admin
-    .from("profiles")
-    .update({ empresa_id: empresa.id })
-    .eq("id", data.user.id);
-
-  if (linkError) {
-    console.error("[signUpEmpresa] link", linkError);
     return { success: false, error: ERRO_GENERICO };
   }
 

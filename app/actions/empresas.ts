@@ -56,7 +56,10 @@ export async function createEmpresa(
     email: adminEmail,
     password: tempPassword,
     email_confirm: true,
-    user_metadata: { nome: adminNome, cargo: adminCargo, role: "admin" },
+    // empresa_id precisa ir junto aqui, não num update depois — o trigger
+    // handle_new_user() insere o profile na hora do createUser, e a
+    // constraint profiles_empresa_id_by_role checa nesse exato insert.
+    user_metadata: { nome: adminNome, cargo: adminCargo, role: "admin", empresa_id: empresa.id },
   });
 
   if (error || !data.user) {
@@ -68,16 +71,6 @@ export async function createEmpresa(
     }
     console.error("[createEmpresa] admin", error);
     return { success: false, error: error?.message ?? "Não foi possível criar o administrador." };
-  }
-
-  const { error: linkError } = await admin
-    .from("profiles")
-    .update({ empresa_id: empresa.id })
-    .eq("id", data.user.id);
-
-  if (linkError) {
-    console.error("[createEmpresa] link", linkError);
-    return { success: false, error: "Empresa e admin criados, mas houve um erro ao vinculá-los. Contate o suporte." };
   }
 
   revalidatePath("/master");

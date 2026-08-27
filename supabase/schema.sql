@@ -105,10 +105,11 @@ create index eventos_uso_empresa_id_idx on public.eventos_uso (empresa_id, creat
 
 -- Cria automaticamente um profile ao registrar um novo usuário no Auth.
 -- O admin/master cria colaboradores e admins via Supabase Admin API passando
--- nome/cargo/role em user_metadata; este trigger lê esses valores para
--- popular o profile. empresa_id NÃO vem daqui — é completado num update
--- logo depois do createUser (ver app/actions/colaboradores.ts e
--- app/actions/empresas.ts), mesmo padrão já usado pro avatar_url.
+-- nome/cargo/role/empresa_id em user_metadata; este trigger lê esses
+-- valores para popular o profile. empresa_id precisa vir JUNTO nesse
+-- insert (não num update depois) porque profiles_empresa_id_by_role checa
+-- na hora do insert — um update posterior seria tarde demais, o insert já
+-- teria falhado antes de chegar lá.
 create function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -116,9 +117,10 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, nome, email, cargo, role, status)
+  insert into public.profiles (id, empresa_id, nome, email, cargo, role, status)
   values (
     new.id,
+    nullif(new.raw_user_meta_data ->> 'empresa_id', '')::uuid,
     coalesce(new.raw_user_meta_data ->> 'nome', ''),
     new.email,
     coalesce(new.raw_user_meta_data ->> 'cargo', ''),

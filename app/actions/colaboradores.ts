@@ -48,7 +48,10 @@ export async function createColaborador(
     email,
     password: tempPassword,
     email_confirm: true,
-    user_metadata: { nome, cargo, role },
+    // empresa_id precisa ir junto aqui, não num update depois — o trigger
+    // handle_new_user() insere o profile na hora do createUser, e a
+    // constraint profiles_empresa_id_by_role checa nesse exato insert.
+    user_metadata: { nome, cargo, role, empresa_id: currentAdmin.empresa_id },
   });
 
   if (error || !data.user) {
@@ -59,14 +62,15 @@ export async function createColaborador(
     return { success: false, error: error?.message ?? "Não foi possível criar o colaborador." };
   }
 
-  const { error: linkError } = await admin
-    .from("profiles")
-    .update({ empresa_id: currentAdmin.empresa_id, avatar_url: avatar_url || null })
-    .eq("id", data.user.id);
+  if (avatar_url) {
+    const { error: avatarError } = await admin
+      .from("profiles")
+      .update({ avatar_url })
+      .eq("id", data.user.id);
 
-  if (linkError) {
-    console.error("[createColaborador] link", linkError);
-    return { success: false, error: "Colaborador criado, mas houve um erro ao vinculá-lo à empresa. Contate o suporte." };
+    if (avatarError) {
+      console.error("[createColaborador] avatar", avatarError);
+    }
   }
 
   revalidatePath("/colaboradores");
