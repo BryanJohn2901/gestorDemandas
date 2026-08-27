@@ -72,6 +72,7 @@ create index demandas_empresa_id_idx on public.demandas (empresa_id);
 create index demandas_responsavel_id_idx on public.demandas (responsavel_id);
 create index demandas_status_idx on public.demandas (status);
 create index demandas_prazo_idx on public.demandas (prazo);
+create index demandas_criado_por_idx on public.demandas (criado_por);
 
 -- comentarios: histórico de comentários por demanda (fase 2 da UI).
 create table public.comentarios (
@@ -83,6 +84,7 @@ create table public.comentarios (
 );
 
 create index comentarios_demanda_id_idx on public.comentarios (demanda_id);
+create index comentarios_autor_id_idx on public.comentarios (autor_id);
 
 -- eventos_uso: log de uso (login, criar demanda, mudar status...) pro
 -- dashboard de atividade do master. acao é texto livre de propósito —
@@ -131,6 +133,12 @@ begin
 end;
 $$;
 
+-- Trigger-only: o Postgres dispara sem checar EXECUTE do papel que fez o
+-- DML, então não precisa de grant pra role nenhuma. Postgres concede
+-- EXECUTE a PUBLIC por padrão em função nova — revoga pra não deixar
+-- exposta via /rest/v1/rpc/handle_new_user à toa.
+revoke execute on function public.handle_new_user() from public;
+
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
@@ -139,12 +147,15 @@ create trigger on_auth_user_created
 create function public.set_updated_at()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   new.updated_at = now();
   return new;
 end;
 $$;
+
+revoke execute on function public.set_updated_at() from public;
 
 create trigger set_demandas_updated_at
   before update on public.demandas
@@ -162,6 +173,9 @@ alter table public.eventos_uso enable row level security;
 
 -- Helper: verifica se o usuário autenticado é admin, sem recursão de RLS
 -- (security definer roda com o dono da função, que ignora as policies).
+-- Revoga de PUBLIC e regrant só authenticated: é chamada de dentro das
+-- próprias RLS policies (roda como o papel authenticated do PostgREST), mas
+-- não tem motivo pra deixar aberta pra anon/PUBLIC via /rest/v1/rpc.
 create function public.is_admin()
 returns boolean
 language sql
@@ -174,6 +188,9 @@ as $$
     where id = auth.uid() and role = 'admin'
   );
 $$;
+
+revoke execute on function public.is_admin() from public;
+grant execute on function public.is_admin() to authenticated;
 
 -- Helper: verifica se o usuário autenticado é master (dono da plataforma).
 create function public.is_master()
@@ -189,6 +206,9 @@ as $$
   );
 $$;
 
+revoke execute on function public.is_master() from public;
+grant execute on function public.is_master() to authenticated;
+
 -- Helper: empresa do usuário autenticado (null pra master).
 create function public.current_empresa_id()
 returns uuid
@@ -199,6 +219,9 @@ stable
 as $$
   select empresa_id from public.profiles where id = auth.uid();
 $$;
+
+revoke execute on function public.current_empresa_id() from public;
+grant execute on function public.current_empresa_id() to authenticated;
 
 -- Presença/uso: funções security definer em vez de policy de self-update em
 -- profiles ou de insert direto em eventos_uso. Não existe policy de
@@ -221,6 +244,7 @@ as $$
     and (last_seen_at is null or last_seen_at < now() - interval '1 minute');
 $$;
 
+revoke execute on function public.touch_last_seen() from public;
 grant execute on function public.touch_last_seen() to authenticated;
 
 create function public.log_evento(p_acao text)
@@ -233,6 +257,7 @@ as $$
   select empresa_id, id, p_acao from public.profiles where id = auth.uid();
 $$;
 
+revoke execute on function public.log_evento(text) from public;
 grant execute on function public.log_evento(text) to authenticated;
 
 -- --- empresas -----------------------------------------------------------
@@ -244,22 +269,22 @@ grant execute on function public.log_evento(text) to authenticated;
 create policy "empresas_select_master"
   on public.empresas for select
   to authenticated
-  using (public.is_master());
+  using ((select public.is_master()));
 
 create policy "empresas_insert_master"
   on public.empresas for insert
   to authenticated
-  with check (public.is_master());
+  with check ((select public.is_master()));
 
 create policy "empresas_update_master"
   on public.empresas for update
   to authenticated
-  using (public.is_master());
+  using ((select public.is_master()));
 
 create policy "empresas_delete_master"
   on public.empresas for delete
   to authenticated
-  using (public.is_master());
+  using ((select public.is_master()));
 
 -- --- profiles ---------------------------------------------------------------
 --
@@ -268,27 +293,30 @@ create policy "empresas_delete_master"
 -- current_empresa_id() do master é null, "empresa_id = null" nunca bate
 -- com linha de ninguém. Isso é o que garante, no banco, que master não lê
 -- colaborador de empresa nenhuma — não é só a UI que esconde.
+--
+-- (select auth.<fn>()) em vez de auth.<fn>() direto em todas as policies
+-- abaixo: evita reavaliar a função por linha, só uma vez por statement.
 
 create policy "profiles_select"
   on public.profiles for select
   to authenticated
-  using (id = auth.uid() or empresa_id = public.current_empresa_id());
+  using (id = (select auth.uid()) or empresa_id = (select public.current_empresa_id()));
 
 -- Apenas admin cria/edita/remove colaboradores da própria empresa.
 create policy "profiles_insert_admin"
   on public.profiles for insert
   to authenticated
-  with check (public.is_admin() and empresa_id = public.current_empresa_id());
+  with check ((select public.is_admin()) and empresa_id = (select public.current_empresa_id()));
 
 create policy "profiles_update_admin"
   on public.profiles for update
   to authenticated
-  using (public.is_admin() and empresa_id = public.current_empresa_id());
+  using ((select public.is_admin()) and empresa_id = (select public.current_empresa_id()));
 
 create policy "profiles_delete_admin"
   on public.profiles for delete
   to authenticated
-  using (public.is_admin() and empresa_id = public.current_empresa_id());
+  using ((select public.is_admin()) and empresa_id = (select public.current_empresa_id()));
 
 -- --- demandas ----------------------------------------------------------------
 
@@ -298,15 +326,15 @@ create policy "demandas_select"
   on public.demandas for select
   to authenticated
   using (
-    empresa_id = public.current_empresa_id()
-    and (public.is_admin() or responsavel_id = auth.uid())
+    empresa_id = (select public.current_empresa_id())
+    and ((select public.is_admin()) or responsavel_id = (select auth.uid()))
   );
 
 -- Apenas admin cria demandas, sempre na própria empresa.
 create policy "demandas_insert_admin"
   on public.demandas for insert
   to authenticated
-  with check (public.is_admin() and empresa_id = public.current_empresa_id());
+  with check ((select public.is_admin()) and empresa_id = (select public.current_empresa_id()));
 
 -- Admin atualiza qualquer demanda da própria empresa; colaborador só
 -- atualiza as suas (ex: mudar status ao mover no Kanban).
@@ -314,12 +342,12 @@ create policy "demandas_update"
   on public.demandas for update
   to authenticated
   using (
-    empresa_id = public.current_empresa_id()
-    and (public.is_admin() or responsavel_id = auth.uid())
+    empresa_id = (select public.current_empresa_id())
+    and ((select public.is_admin()) or responsavel_id = (select auth.uid()))
   )
   with check (
-    empresa_id = public.current_empresa_id()
-    and (public.is_admin() or responsavel_id = auth.uid())
+    empresa_id = (select public.current_empresa_id())
+    and ((select public.is_admin()) or responsavel_id = (select auth.uid()))
   );
 
 -- RLS acima só decide QUAIS LINHAS um colaborador pode tocar — não QUAIS
@@ -353,6 +381,8 @@ begin
 end;
 $$;
 
+revoke execute on function public.enforce_demanda_update_scope() from public;
+
 create trigger enforce_demanda_update_scope
   before update on public.demandas
   for each row execute function public.enforce_demanda_update_scope();
@@ -361,7 +391,7 @@ create trigger enforce_demanda_update_scope
 create policy "demandas_delete_admin"
   on public.demandas for delete
   to authenticated
-  using (public.is_admin() and empresa_id = public.current_empresa_id());
+  using ((select public.is_admin()) and empresa_id = (select public.current_empresa_id()));
 
 -- --- comentarios ---------------------------------------------------------------
 --
@@ -377,8 +407,8 @@ create policy "comentarios_select"
     exists (
       select 1 from public.demandas d
       where d.id = comentarios.demanda_id
-        and d.empresa_id = public.current_empresa_id()
-        and (public.is_admin() or d.responsavel_id = auth.uid())
+        and d.empresa_id = (select public.current_empresa_id())
+        and ((select public.is_admin()) or d.responsavel_id = (select auth.uid()))
     )
   );
 
@@ -386,12 +416,12 @@ create policy "comentarios_insert"
   on public.comentarios for insert
   to authenticated
   with check (
-    autor_id = auth.uid()
+    autor_id = (select auth.uid())
     and exists (
       select 1 from public.demandas d
       where d.id = comentarios.demanda_id
-        and d.empresa_id = public.current_empresa_id()
-        and (public.is_admin() or d.responsavel_id = auth.uid())
+        and d.empresa_id = (select public.current_empresa_id())
+        and ((select public.is_admin()) or d.responsavel_id = (select auth.uid()))
     )
   );
 
@@ -403,7 +433,7 @@ create policy "comentarios_insert"
 create policy "eventos_uso_select_master"
   on public.eventos_uso for select
   to authenticated
-  using (public.is_master());
+  using ((select public.is_master()));
 
 -- ============================================================================
 -- 4. Primeiro usuário master
